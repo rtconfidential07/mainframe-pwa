@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mainframe – Goal & Progress Tracker (watcher-only rollover)</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#D4AF37">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mainframe">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- PWA Icons -->
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0f1720;
+      --panel:#161B22;
+      --text:#EDEDED;
+      --sub:#A3A3A3;
+      --gold:#D4AF37;
+      --c-business:#3B82F6;
+      --c-health:#22C55E;
+      --c-growth:#8B5CF6;
+      --c-family:#FF8A65;
+      --c-network:#FFD166;
+      --radius:16px;
+      --radius-lg:22px;
+      --gap:14px;
+      --panel-pad:16px;
+
+      --analytics-modal-max-width: 1100px;
+      --analytics-card-h: 260px;
+      --analytics-card-h-sm: 160px;
+
+      --donut-size: 160px;
+      --donut-size-sm: 120px;
+    }
+
+    html,body{height:100%;}
+    body{
+      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      color:var(--text); background:var(--bg);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .app{ max-width:1500px; margin:40px auto; padding:0 16px; } /* <-- adjusted to 1500px */
+    .mainframe{ background:var(--panel); border-radius:var(--radius-lg); padding:18px; box-shadow:0 0 0 1px rgba(255,255,255,0.05) inset; }
+
+    .grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr; grid-auto-rows:minmax(120px, auto); grid-gap:var(--gap); }
+    .section{ background:rgba(255,255,255,0.02); border-radius:var(--radius); padding:var(--panel-pad); box-sizing:border-box; }
+    .section h3{ margin:0 0 8px; font-size:18px; font-weight:700; }
+    .muted{ color:var(--sub); }
+
+    .main-goal{ grid-column:1/5; }
+    .goals{ grid-column:1/2; grid-row:2/4; }
+    .todo{ grid-column:2/3; grid-row:2/3; }
+    .daily{ grid-column:3/4; grid-row:2/3; }
+    .analytics{ grid-column:4/5; grid-row:2/4; display:flex; flex-direction:column; gap:var(--gap); }
+    .archive-bar{ grid-column:2/4; grid-row:3/4; align-self:end; }
+
+    .main-goal-title{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .progress{ height:10px; background:#0e131a; border-radius:999px; overflow:hidden; box-shadow:0 0 0 1px rgba(255,255,255,0.04) inset; }
+    .progress>span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--gold),#ffe27a); box-shadow:0 0 12px rgba(255,217,90,0.5); transition:width .3s ease; }
+
+    .row{ display:flex; gap:8px; align-items:center; }
+    .btn{ background:transparent; color:var(--gold); border:1px solid rgba(255,255,255,0.1); padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; }
+    .btn:hover{ border-color:rgba(255,255,255,0.2); }
+    .btn.ghost{ color:var(--text); }
+
+    .list{ display:flex; flex-direction:column; gap:10px; }
+    .item{ background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); padding:10px; border-radius:12px; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; box-sizing:border-box; }
+    .item .title{ font-size:14px; }
+    .drag{ cursor:grab; opacity:0.9; }
+    .pill{ font-size:12px; color:var(--sub); }
+
+    .item input[type="checkbox"]{ width:18px; height:18px; margin:0; accent-color: var(--gold); cursor: pointer; }
+    .item.completed { opacity: 0.6; }
+    .item.completed .title { text-decoration: line-through; color: rgba(255,255,255,0.65); }
+
+    .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .dot.business{ background:var(--c-business); }
+    .dot.health{ background:var(--c-health); }
+    .dot.growth{ background:var(--c-growth); }
+    .dot.family{ background:var(--c-family); }
+    .dot.network{ background:var(--c-network); }
+
+    .actions{ display:flex; gap:6px; opacity:0.7; }
+    .icon-btn{ background:transparent; border:none; color:var(--sub); cursor:pointer; font-size:14px; }
+    .item:hover .actions{ opacity:1; }
+
+    .item.selected{ box-shadow: 0 6px 18px rgba(212,175,55,0.06); border-color: rgba(212,175,55,0.14); }
+
+    .archive{ background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.12); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; }
+
+    .card{ background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); padding:12px; border-radius:12px; box-sizing:border-box; display:flex; flex-direction:column; gap:8px; }
+    .card h4{ margin:0; font-size:14px; color:var(--sub); }
+    .chart-wrap{ flex:1 1 auto; min-height:0; height:100%; }
+    .chart-wrap canvas{ width:100% !important; height:100% !important; display:block; }
+
+    .streakbar{ height:8px; background:#0e131a; border-radius:999px; overflow:hidden; }
+    .streakbar>span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--gold),#ffe27a); transition:width .36s ease; }
+
+    /* ---------- Daily Streak card styling (centered & milestone pills) ---------- */
+    .card.streak {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      gap:10px;
+      padding:16px;
+      min-height: 220px;
+      box-sizing: border-box;
+    }
+    .streak-big{
+      font-size:48px;
+      font-weight:900;
+      line-height:1;
+      letter-spacing:0.5px;
+      margin:0;
+    }
+    .streak-emojis{
+      font-size:40px;
+      opacity:0.95;
+    }
+    .milestones{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      margin-top:6px;
+    }
+    .milestone{
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.02);
+      color:var(--text);
+      font-size:13px;
+      border:1px solid rgba(255,255,255,0.04);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      transition:transform .24s ease, box-shadow .24s ease, opacity .24s ease;
+      cursor:default;
+    }
+    .milestone.locked{ opacity:0.45; transform:scale(1); }
+    .milestone.unlocked{
+      opacity:1;
+      box-shadow:0 6px 24px rgba(212,175,55,0.12);
+      border-color: rgba(212,175,55,0.6);
+      background: linear-gradient(180deg, rgba(212,175,55,0.04), rgba(212,175,55,0.02));
+    }
+    .milestone.unlocking{
+      animation: milestoneUnlock 800ms cubic-bezier(.2,.9,.3,1);
+    }
+    @keyframes milestoneUnlock{
+      0%{ transform:scale(.6); filter:brightness(.8); opacity:0; }
+      60%{ transform:scale(1.08); opacity:1; filter:brightness(1.1); }
+      100%{ transform:scale(1); filter:none; opacity:1; }
+    }
+
+    /* ---------- Pomodoro layout (kept) ---------- */
+    .card.timer {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:18px;
+      gap:12px;
+      min-height: 180px;
+      box-sizing:border-box;
+    }
+    .card.timer .time {
+      font-size:44px;
+      font-weight:800;
+      letter-spacing:1px;
+      line-height:1;
+      margin:0;
+    }
+    .card.timer .presets {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      margin-top:4px;
+    }
+    .card.timer .pomo-controls {
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      margin-top:6px;
+    }
+
+    dialog{ border:none; border-radius:16px; background:var(--panel); color:var(--text); padding:18px; width:min(520px, 92vw); box-sizing:border-box; }
+    dialog::backdrop{ background:rgba(0,0,0,0.6); }
+    .modal-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    label{ font-size:12px; color:var(--sub); }
+    input[type="text"], select, input[type="number"], input[type="color"]{ width:100%; background:#0e131a; color:var(--text); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px; box-sizing:border-box; }
+    .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+
+    .hide-completed{ margin-left:12px; display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--sub); }
+    .hide-completed input{ width:16px; height:16px; accent-color:var(--gold); }
+
+    .confetti{ position:fixed; top:14px; right:14px; background:#1E293B; color:#fff; padding:10px 12px; border-radius:12px; display:none; z-index:9999; }
+
+    /* analytics modal grid */
+    #analyticsModal { width: min(var(--analytics-modal-max-width), 96vw); max-height: 86vh; overflow:auto; padding:20px; box-sizing:border-box; }
+    .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: var(--analytics-card-h) var(--analytics-card-h); grid-template-areas: "donut streak" "bar line"; gap:16px; align-items:start; }
+    .card--donut  { grid-area: donut; }
+    .card--streak { grid-area: streak; }
+    .card--bar    { grid-area: bar; }
+    .card--line   { grid-area: line; }
+    .analytics-grid .card .chart-wrap { height: calc(100% - 28px); }
+    .card--donut .chart-wrap { display:flex; align-items:center; justify-content:center; padding:6px; box-sizing:border-box; }
+    .card--donut .chart-wrap canvas { width: auto !important; height: auto !important; max-width: var(--donut-size) !important; max-height: var(--donut-size) !important; display:block; }
+
+    canvas { display:block; width:100% !important; height:100% !important; }
+    @media (max-width: 1020px){
+      .grid{ grid-template-columns:1fr; }
+      .main-goal{ grid-column:1/2; }
+      .goals,.todo,.daily,.analytics,.archive-bar{ grid-column:1/2; grid-row:auto; }
+      .archive-bar{ order:5; }
+
+      .analytics-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, var(--analytics-card-h-sm)); grid-template-areas: "donut" "streak" "bar" "line"; }
+      .card--donut .chart-wrap canvas { max-width: var(--donut-size-sm) !important; max-height: var(--donut-size-sm) !important; }
+      .card.timer { min-height: 140px; }
+      .card.timer .time { font-size:34px; }
+      .streak-big { font-size:36px; }
+    }
+
+    /* Focus overlay styling (fullscreen black) */
+    dialog#focusModal { width:100vw; height:100vh; max-width:100vw; max-height:100vh; border-radius:0; padding:0; background:transparent; }
+    dialog#focusModal::backdrop{ background: rgba(0,0,0,0.95); }
+    #focusContent {
+      width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:#fff;
+    }
+    #focusBox { background:transparent; padding:28px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+    #focusBox .focus-time { font-size:84px; font-weight:900; letter-spacing:1px; }
+    #focusBox .focus-controls { display:flex; gap:10px; margin-top:4px; }
+    #focusExit { position:fixed; top:18px; right:18px; background:transparent; border:1px solid rgba(255,255,255,0.08); color:#fff; padding:10px 12px; border-radius:10px; cursor:pointer; }
+
+    /* confetti canvas overlay */
+    #confettiCanvas { position:fixed; left:0; top:0; width:100vw; height:100vh; pointer-events:none; z-index:9999; display:none; }
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="mainframe">
+      <div class="grid">
+        <!-- MAIN GOAL -->
+        <section class="section main-goal">
+          <div class="main-goal-title">
+            <div>
+              <h3 id="mainGoalTitle">Main Goal</h3>
+              <div class="muted" id="mainGoalUnitLabel"></div>
+            </div>
+            <div class="row">
+              <button class="btn" id="btnOpenSettings" title="Settings">⚙️</button>
+              <button class="btn" id="btnEditMainGoal">Edit</button>
+              <button class="btn" id="btnSaveAll">Save</button>
+            </div>
+          </div>
+          <div class="progress" style="margin-top:10px;">
+            <span id="mainGoalProgress"></span>
+          </div>
+        </section>
+
+        <!-- GOALS LIST -->
+        <section class="section goals">
+          <div class="row" style="justify-content:space-between;">
+            <h3>Smaller Goals</h3>
+            <button class="btn" id="btnAddGoal">+ Goal</button>
+          </div>
+          <div class="list" id="goalsList"></div>
+        </section>
+
+        <!-- MAIN TODO LIST -->
+        <section class="section todo" ondragover="event.preventDefault()" data-drop="todo">
+          <div class="row" style="justify-content:space-between;">
+            <h3>Main To-Do</h3>
+            <button class="btn" id="btnAddTask">+ Task</button>
+          </div>
+          <div class="list" id="todoList"></div>
+        </section>
+
+        <!-- DAILY TASKS -->
+        <section class="section daily" ondragover="event.preventDefault()" data-drop="daily">
+          <div class="row" style="justify-content:space-between;">
+            <h3>Daily Tasks</h3>
+            <button class="btn" id="btnAddDaily">+ Daily</button>
+          </div>
+          <div class="list" id="dailyList"></div>
+        </section>
+
+        <!-- ARCHIVE BAR -->
+        <section class="section archive-bar">
+          <div class="archive">
+            <span class="muted">Archived tasks live here</span>
+            <button class="btn" id="btnOpenArchive">Open Archive</button>
+          </div>
+        </section>
+
+        <!-- ANALYTICS COLUMN -->
+        <aside class="analytics">
+          <!-- Daily Streak (centered, big number, emojis, milestones) -->
+          <div class="card streak" id="streakCard">
+            <div class="streak-emojis" id="streakEmojis">🔥</div>
+            <div class="streak-big" id="streakBig">0</div>
+            <div style="font-size:13px;color:var(--sub)">Days in a row</div>
+
+            <!-- milestones pills -->
+            <div class="milestones" id="milestonesContainer" aria-live="polite" aria-label="Streak milestones">
+              <!-- pills inserted by JS -->
+            </div>
+
+            <div style="width:100%; margin-top:8px;">
+              <div class="streakbar" style="height:8px;"><span id="streakBar" style="width:0%"></span></div>
+            </div>
+
+            <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+              <div class="muted" style="font-size:13px">Longest: <b id="longestStreak">0</b></div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn" id="btnEnterFocus" title="Enter Focus Mode">Enter Focus Mode</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pomodoro -->
+          <div class="card timer">
+            <h3>Pomodoro</h3>
+            <div class="time" id="pomoTime">25:00</div>
+            <div class="presets" role="toolbar" aria-label="Pomodoro presets">
+              <button class="btn" data-preset="25-5">25:5</button>
+              <button class="btn" data-preset="15-5">15:5</button>
+              <button class="btn" data-preset="50-10">50:10</button>
+            </div>
+            <div class="pomo-controls" role="group" aria-label="Pomodoro controls">
+              <button class="btn ghost" id="pomoStart">Start</button>
+              <button class="btn ghost" id="pomoReset">Reset</button>
+            </div>
+          </div>
+
+          <div class="card" style="flex:1; display:flex; flex-direction:column;">
+            <h3>Category Radar</h3>
+            <div class="chart-wrap" style="height:240px;">
+              <canvas id="radar"></canvas>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+              <button class="btn" id="btnMoreAnalytics" style="align-self:flex-start;">More analytics</button>
+              <button class="btn ghost" id="btnRolloverSummary" title="Show rollover summary">Rollover Summary</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- Archive Modal -->
+  <dialog id="archiveModal">
+    <h3>Archived Tasks</h3>
+    <div class="row" style="gap:8px; margin:8px 0 12px; flex-wrap:wrap;">
+      <input type="text" id="archSearch" placeholder="Search by name" />
+      <select id="archFilter">
+        <option value="">All categories</option>
+        <option value="business">Business</option>
+        <option value="health">Health</option>
+        <option value="growth">Growth</option>
+        <option value="family">Family</option>
+        <option value="network">Network</option>
+      </select>
+      <button class="btn" id="archSelectAll">Select all</button>
+      <button class="btn" id="archUnarchive">Unarchive selected</button>
+    </div>
+    <div class="list" id="archiveList" style="max-height:50vh; overflow:auto;"></div>
+    <div class="modal-actions"><button class="btn" onclick="document.getElementById('archiveModal').close()">Close</button></div>
+  </dialog>
+
+  <!-- Settings Modal -->
+  <dialog id="settingsModal" aria-labelledby="settingsTitle">
+    <h3 id="settingsTitle">Settings</h3>
+    <div class="modal-grid" style="margin-top:8px;">
+      <div>
+        <label style="display:block; margin-bottom:6px;">Good Morning</label>
+        <label style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" id="settings_goodMorning_enabled" />
+          <span class="muted">Enable Good Morning message</span>
+        </label>
+      </div>
+
+      <div>
+        <label style="display:block; margin-bottom:6px;">Preferred time</label>
+        <input type="time" id="settings_goodMorning_time" />
+        <div class="muted" style="font-size:12px; margin-top:6px;">Time for Good Morning message</div>
+      </div>
+
+      <div style="grid-column:1 / -1; margin-top:6px;">
+        <label style="display:flex; gap:8px; align-items:center;">
+          <!-- keep the same id here so existing code uses it -->
+          <input type="checkbox" id="hideCompletedToggle" /> <span>Hide completed tasks in lists</span>
+        </label>
+      </div>
+
+      <div style="grid-column:1 / -1; margin-top:8px;">
+        <label style="display:block; margin-bottom:6px;">Export / Import</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn" id="btnExportData" title="Export backup">Export</button>
+          <button class="btn" id="btnImportData" title="Import backup">Import</button>
+          <input type="file" id="fileImport" accept="application/json" style="display:none" />
+        </div>
+        <div class="muted" style="font-size:12px; margin-top:6px;">Export a JSON backup or import one (merge or replace options shown on import).</div>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn ghost" id="btnSettingsCancel">Cancel</button>
+      <button class="btn" id="btnSettingsSave">Save</button>
+    </div>
+  </dialog>
+
+  <!-- Analytics Modal (same as before) -->
+  <dialog id="analyticsModal" aria-labelledby="analyticsTitle">
+    <h3 id="analyticsTitle">More analytics</h3>
+    <div class="analytics-grid" role="region" aria-live="polite">
+      <div class="card card--donut">
+        <h4>Completion ratio</h4>
+        <div class="chart-wrap">
+          <canvas id="donutChart"></canvas>
+        </div>
+      </div>
+      <div class="card card--streak">
+        <h4>Streaks</h4>
+        <div>Current streak: <b id="modalCurrentStreak">0</b> days</div>
+        <div>Longest streak: <b id="modalLongestStreak">0</b> days</div>
+      </div>
+      <div class="card card--bar">
+        <h4>Completed vs Pending (by category)</h4>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+      <div class="card card--line">
+        <h4>Completions (last 14 days)</h4>
+        <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+      </div>
+      <div class="modal-actions" style="grid-column:1 / -1; justify-content:flex-end;">
+        <button class="btn ghost" id="closeAnalytics">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Rollover Summary Modal -->
+  <dialog id="rolloverModal" aria-labelledby="rolloverTitle">
+    <h3 id="rolloverTitle">Rollover Summary</h3>
+    <div id="rolloverContent" style="min-width:360px; max-height:60vh; overflow:auto;">
+      <!-- injected by JS -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="closeRollover">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Good Morning Modal -->
+  <dialog id="goodMorningModal" aria-labelledby="gmTitle">
+    <h3 id="gmTitle">Good morning!</h3>
+    <div id="goodMorningContent" style="min-width:300px;">
+      <!-- content injected by JS -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="gmDismissToday">Don't show again today</button>
+      <button class="btn" id="gmClose">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Goal Modal -->
+  <dialog id="goalModal">
+    <h3 id="goalModalTitle">Edit Goal</h3>
+    <div class="modal-grid">
+      <div>
+        <label>Name</label>
+        <input type="text" id="goalName" />
+      </div>
+      <div>
+        <label>Color</label>
+        <input type="color" id="goalColor" value="#FFD95A" />
+      </div>
+      <div>
+        <label>Unit (e.g., pages, hours)</label>
+        <input type="text" id="goalUnit" placeholder="unit" />
+      </div>
+      <div>
+        <label>Progress (0–100%)</label>
+        <input type="number" id="goalProgress" min="0" max="100" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="goalDelete">Delete</button>
+      <button class="btn" id="goalSave">Save</button>
+    </div>
+  </dialog>
+
+  <!-- Task Modal -->
+  <dialog id="taskModal">
+    <h3 id="taskModalTitle">Edit Task</h3>
+    <div class="modal-grid">
+      <div style="grid-column:1/3;">
+        <label>Name</label>
+        <input type="text" id="taskName" />
+      </div>
+      <div>
+        <label>Category</label>
+        <select id="taskCategory">
+          <option value="business">Business</option>
+          <option value="health">Health</option>
+          <option value="growth">Growth</option>
+          <option value="family">Family</option>
+          <option value="network">Network</option>
+        </select>
+      </div>
+      <div>
+        <label>Type</label>
+        <select id="taskType">
+          <option value="todo">Main To-Do</option>
+          <option value="daily">Daily</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="taskArchive">Archive</button>
+      <button class="btn ghost" id="taskDelete">Delete</button>
+      <button class="btn" id="taskSave">Save</button>
+    </div>
+  </dialog>
+
+  <!-- Focus overlay (fullscreen black) -->
+  <dialog id="focusModal" aria-modal="true">
+    <div id="focusContent">
+      <button id="focusExit" class="btn ghost" title="Exit Focus Mode">Exit</button>
+      <div id="focusBox" role="dialog" aria-label="Focus Mode">
+        <div id="focusTaskTitle" style="font-size:18px; opacity:0.9;"></div>
+        <div class="focus-time" id="focusPomoTime">25:00</div>
+        <div class="focus-controls">
+          <button class="btn ghost" id="focusPomoStart">Start</button>
+          <button class="btn ghost" id="focusPomoReset">Reset</button>
+        </div>
+        <label style="font-size:13px; margin-top:6px; display:flex; gap:8px; align-items:center; color:#ddd;">
+          <input type="checkbox" id="focusAutoMark" /> Auto-mark after session
+        </label>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- confetti UI fallback message (also used by toast) -->
+  <div class="confetti" id="confetti">Nice! 🔥</div>
+
+  <!-- confetti canvas -->
+  <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+
+  <script>
+    /* =========================
+       DATA, UTILITIES & MIGRATION (with defensive history coercion)
+       Base: mainframe v2.4 (modified with GoodMorning + Rollover Summary)
+       Original file used as base: mainframe v2.4.html. :contentReference[oaicite:1]{index=1}
+    ==========================*/
+    const $ = (q, el=document) => el.querySelector(q);
+    const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
+    const storeKey = 'mainframe_v1';
+    const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+    const yesterdayStr = () => {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    function addDays(dateKey, delta){
+      const parts = (dateKey || '').split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const dt = new Date(y, m, d);       // construct in local time
+      dt.setDate(dt.getDate() + delta);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    }
+
+    const defaultState = {
+      mainGoal:{ id:'main', name:'Your Main Goal', unit:'', color:'#FFD95A', progress:20 },
+      goals:[],
+      tasks:[],
+      archived:[],
+      history:[],
+      analytics:{ streak:0, lastRollover:'', longest:0, milestonesUnlocked:{}, badges:[], xp:0 },
+      settings:{ hideCompleted:false, autoCompleteOnFinish:false, confettiEnabled:true, focus:{ autoMarkAfterSession:false }, goodMorning: { enabled:false, hour:8, minute:0, lastShown:'' } },
+      notificationsMeta: { lastAllDailiesConfettiFor:'', lastAllTodosConfettiFor:'' }
+    };
+
+    function migrateState(raw){
+      if(!raw) return structuredClone(defaultState);
+      const s = Object.assign({}, defaultState, raw);
+      // handle legacy shapes (see previous versions)
+      if(s.tasks && (s.tasks.todo || s.tasks.daily) && !Array.isArray(s.tasks)){
+        const todo = s.tasks.todo || [];
+        const daily = s.tasks.daily || [];
+        const unified = [];
+        todo.forEach(t => {
+          unified.push({
+            id: t.id || (Math.random().toString(36).slice(2,9)),
+            name: t.name || 'Untitled',
+            category: t.category || 'business',
+            isDaily: false,
+            completed: !!t.completed,
+            createdAt: t.createdAt || '',
+            completedOn: t.completedOn || ''
+          });
+        });
+        daily.forEach(t => {
+          const completedToday = !!t.completedOn && t.completedOn === todayStr();
+          unified.push({
+            id: t.id || (Math.random().toString(36).slice(2,9)),
+            name: t.name || 'Untitled',
+            category: t.category || 'health',
+            isDaily: true,
+            completed: completedToday,
+            createdAt: t.createdAt || '',
+            completedOn: t.completedOn || ''
+          });
+        });
+        s.tasks = unified;
+      } else if(!Array.isArray(s.tasks)){
+        s.tasks = [];
+      }
+
+      s.goals = s.goals || [];
+      s.archived = s.archived || [];
+
+      if (!Array.isArray(s.history)) {
+        if (s.history && typeof s.history === 'object') {
+          try { s.history = Object.values(s.history); } catch(e){ s.history = []; }
+        } else {
+          s.history = [];
+        }
+      }
+
+      s.analytics = s.analytics || {};
+      s.analytics.streak = s.analytics.streak || 0;
+      s.analytics.lastRollover = s.analytics.lastRollover || s.analytics.lastMarked || '';
+      s.analytics.longest = s.analytics.longest || 0;
+      s.analytics.milestonesUnlocked = s.analytics.milestonesUnlocked || {};
+      s.analytics.badges = s.analytics.badges || [];
+      s.analytics.xp = typeof s.analytics.xp === 'number' ? s.analytics.xp : 0;
+
+      s.settings = s.settings || {};
+      s.settings.hideCompleted = !!s.settings.hideCompleted;
+      s.settings.autoCompleteOnFinish = !!s.settings.autoCompleteOnFinish;
+      s.settings.confettiEnabled = ('confettiEnabled' in s.settings) ? !!s.settings.confettiEnabled : true;
+      s.settings.focus = s.settings.focus || { autoMarkAfterSession: !!(s.settings.focus && s.settings.focus.autoMarkAfterSession) };
+      s.settings.goodMorning = s.settings.goodMorning || { enabled:false, hour:8, minute:0, lastShown: '' };
+
+      s.notificationsMeta = s.notificationsMeta || {};
+      s.notificationsMeta.lastAllDailiesConfettiFor = s.notificationsMeta.lastAllDailiesConfettiFor || '';
+      s.notificationsMeta.lastAllTodosConfettiFor = s.notificationsMeta.lastAllTodosConfettiFor || '';
+
+      return s;
+    }
+
+    function load(){
+      try{
+        const raw = JSON.parse(localStorage.getItem(storeKey));
+        return migrateState(raw) || structuredClone(defaultState);
+      }catch(e){
+        return structuredClone(defaultState);
+      }
+    }
+
+    let state = load();
+
+    (function startupSanityCheck(){
+      if(!Array.isArray(state.history)){
+        console.warn('Sanity check: state.history not an array on startup — normalizing and saving.');
+        if(state.history && typeof state.history === 'object'){
+          try { state.history = Object.values(state.history); }
+          catch(e){ state.history = []; }
+        } else {
+          state.history = [];
+        }
+        localStorage.setItem(storeKey, JSON.stringify(state));
+      }
+    })();
+
+    function save(){ localStorage.setItem(storeKey, JSON.stringify(state)); }
+    function commit(){ save(); render(); } // single source for save+render
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+
+    const goalModal    = document.getElementById('goalModal');
+    const taskModal    = document.getElementById('taskModal');
+    const archiveModal = document.getElementById('archiveModal');
+    const analyticsModal = document.getElementById('analyticsModal');
+    const focusModal = document.getElementById('focusModal');
+    const rolloverModal = document.getElementById('rolloverModal');
+    const goodMorningModal = document.getElementById('goodMorningModal');
+
+    const MILESTONES = [
+      { threshold: 3, id: 'm3', name: '3-Day Streak', emoji:'✨' },
+      { threshold: 7, id: 'm7', name: '7-Day Streak', emoji:'🔥' },
+      { threshold:14, id: 'm14', name: '14-Day Streak', emoji:'🏅' },
+      { threshold:30, id: 'm30', name: '30-Day Streak', emoji:'🏆' }
+    ];
+
+    function tasksByType(isDaily){
+      return state.tasks.filter(t => !!t.isDaily === !!isDaily);
+    }
+    function isTaskCompleted(t){ return !!t && !!t.completed; }
+
+    function render(){
+      renderMainGoal();
+      renderGoals();
+      renderTasks();
+      renderStreak();
+      renderRadar();
+      updateFocusOverlayUI();
+    }
+
+    function renderMainGoal(){
+      $('#mainGoalTitle').textContent = state.mainGoal.name;
+      $('#mainGoalUnitLabel').textContent = state.mainGoal.unit ? `Unit: ${state.mainGoal.unit}`: '';
+      const bar = $('#mainGoalProgress');
+      if(bar){
+        bar.style.width = (state.mainGoal.progress||0) + '%';
+        bar.style.background = `linear-gradient(90deg, ${state.mainGoal.color}, #ffe27a)`;
+        bar.style.boxShadow = `0 0 12px ${hexToRgba(state.mainGoal.color, .5)}`;
+      }
+    }
+
+    function renderGoals(){
+      const c = $('#goalsList'); if(!c) return;
+      c.innerHTML = '';
+      state.goals.forEach(g=>{
+        const it = document.createElement('div'); it.className='item'; it.draggable=false;
+        it.innerHTML = `
+          <div class="dot" style="background:${g.color};"></div>
+          <div>
+            <div class="title">${escapeHtml(g.name)}</div>
+            <div class="progress" style="margin-top:6px; height:6px"><span style="width:${g.progress||0}%; background:${g.color}"></span></div>
+          </div>
+          <div class="actions">
+            <button class="icon-btn" title="Edit">✏️</button>
+          </div>`;
+        it.querySelector('.icon-btn').onclick=()=>openGoalModal(g.id);
+        c.appendChild(it);
+      });
+    }
+
+    const runtime = { selectedTaskId: null, focusOverlayOpen: false };
+
+    function clearSelectedTask(){
+      runtime.selectedTaskId = null;
+      $$('.item.selected').forEach(el=>el.classList.remove('selected'));
+    }
+    function selectTask(id){
+      if(!id){ clearSelectedTask(); return; }
+      $$('.item.selected').forEach(el=>el.classList.remove('selected'));
+      runtime.selectedTaskId = id;
+      const el = document.querySelector(`.item[data-id="${id}"]`);
+      if(el) el.classList.add('selected');
+    }
+
+    function renderTasks(){
+      const hide = !!(state.settings && state.settings.hideCompleted);
+      const todoList = $('#todoList'); if(todoList) todoList.innerHTML='';
+      tasksByType(false)
+        .filter(t => !hide || !isTaskCompleted(t))
+        .forEach(t => todoList && todoList.appendChild(taskElement(t)));
+
+      const dailyList = $('#dailyList'); if(dailyList) dailyList.innerHTML='';
+      tasksByType(true)
+        .filter(t => !hide || !isTaskCompleted(t))
+        .forEach(t => dailyList && dailyList.appendChild(taskElement(t, true)));
+
+      if(runtime.selectedTaskId){
+        const sel = document.querySelector(`.item[data-id="${runtime.selectedTaskId}"]`);
+        if(!sel) runtime.selectedTaskId = null;
+        else sel.classList.add('selected');
+      }
+    }
+
+    function taskElement(t, isDaily=false){
+      const it = document.createElement('div');
+      const isCompleted = isTaskCompleted(t);
+      it.className = 'item drag' + (isCompleted ? ' completed' : '');
+      it.draggable = true;
+      it.dataset.id = t.id;
+      it.dataset.type = isDaily ? 'daily' : 'todo';
+      const dotCls = `dot ${t.category}`;
+      const checkboxHtml = `<input type="checkbox" class="taskChk" ${t.completed ? 'checked' : ''} aria-label="Mark task complete">`;
+      const labelHtml = `<label style="grid-column:1/3; display:flex; align-items:center; gap:8px; cursor:pointer;">
+          ${checkboxHtml} <div class="${dotCls}"></div> <div><div class="title">${escapeHtml(t.name)}</div>
+          ${isDaily ? `<div class="pill">${t.completed? 'Completed today ✅':'Not yet today'}</div>`: ''}</div></label>`;
+      it.innerHTML = `${labelHtml}<div class="actions"><button class="icon-btn" title="Edit">✏️</button>
+        <button class="icon-btn" title="Archive">📦</button></div>`;
+      const btns = it.querySelectorAll('.icon-btn'); const editBtn = btns[0], archBtn = btns[1];
+      if(editBtn) editBtn.onclick = (e)=>{ e.stopPropagation(); openTaskModal(t.id, isDaily ? 'daily' : 'todo'); };
+      if(archBtn) archBtn.onclick = (e)=>{ e.stopPropagation(); archiveTask(t.id); commit(); checkAllCompletedTriggers(); };
+      const chk = it.querySelector('.taskChk');
+      if(chk){
+        chk.addEventListener('change', (e) => {
+          e.stopPropagation();
+          toggleTaskComplete(t.id);
+        });
+      }
+
+      it.addEventListener('click', (e) => {
+        const ignored = e.target.closest('.icon-btn') || e.target.closest('input');
+        if(ignored) return;
+        selectTask(t.id);
+      });
+
+      it.addEventListener('dragstart', e=>{
+        it.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', JSON.stringify({id:t.id, from:isDaily?'daily':'todo'}));
+      });
+      it.addEventListener('dragend', e=>{ it.classList.remove('dragging'); });
+
+      return it;
+    }
+
+    function renderArchive(){
+      const list = $('#archiveList'); if(!list) return; list.innerHTML='';
+      const q = ($('#archSearch') && $('#archSearch').value.toLowerCase()) || '';
+      const f = ($('#archFilter') && $('#archFilter').value) || '';
+      const items = state.archived.filter(a=> (!q || a.name.toLowerCase().includes(q)) && (!f || a.category===f));
+      items.forEach(a=>{
+        const it = document.createElement('div'); it.className='item';
+        it.dataset.id = a.id;
+        it.innerHTML = `<input type="checkbox" class="archChk" />
+          <div><div class="title">${escapeHtml(a.name)}</div><div class="pill">${(a.isDaily? 'Daily':'Todo').toUpperCase()} • <span class="dot ${a.category}"></span> ${a.category}</div></div>
+          <div class="actions"><button class="icon-btn" title="Delete">🗑️</button></div>`;
+        it.querySelector('button').onclick=()=>{ state.archived = state.archived.filter(x=>x.id !== a.id); commit(); };
+        list.appendChild(it);
+      });
+    }
+
+    /* =========================
+       STREAK UI & MILESTONES
+    ==========================*/
+    function renderStreak(){
+      const streakVal = state.analytics?.streak || 0;
+      const bigEl = $('#streakBig'); if(bigEl) bigEl.textContent = streakVal;
+      const emojisEl = $('#streakEmojis');
+      if(emojisEl){
+        let emojis = '🔥';
+        if(streakVal >= 30) emojis = '🏆🔥✨';
+        else if(streakVal >= 14) emojis = '🏅🔥';
+        else if(streakVal >= 7) emojis = '🔥✨';
+        else if(streakVal >= 3) emojis = '✨';
+        else if(streakVal === 0) emojis = '—';
+        emojisEl.textContent = emojis;
+      }
+      const longestEl = $('#longestStreak'); if(longestEl) longestEl.textContent = state.analytics?.longest || 0;
+      const next = nextMilestoneThreshold();
+      const pct = next ? Math.min(100, Math.round((streakVal / next) * 100)) : 100;
+      const sb = $('#streakBar'); if(sb) sb.style.width = pct + '%';
+      renderMilestones();
+    }
+
+    function renderMilestones(){
+      const container = $('#milestonesContainer'); if(!container) return;
+      container.innerHTML = '';
+      MILESTONES.forEach(ms=>{
+        const unlocked = !!(state.analytics && state.analytics.milestonesUnlocked && state.analytics.milestonesUnlocked[ms.threshold]);
+        const el = document.createElement('div');
+        el.className = 'milestone ' + (unlocked ? 'unlocked' : 'locked');
+        el.dataset.threshold = ms.threshold;
+        el.setAttribute('title', unlocked ? `${ms.name} (unlocked)` : `Unlock at ${ms.threshold} days`);
+        el.innerHTML = `<span class="milestone-emoji">${ms.emoji}</span><span class="milestone-label">${ms.threshold}d</span>`;
+        if(unlocked){
+          const date = state.analytics.milestonesUnlocked[ms.threshold];
+          if(date){
+            const small = document.createElement('div'); small.style.fontSize='11px'; small.style.opacity='.8'; small.style.marginLeft='6px';
+            small.textContent = date;
+            el.appendChild(small);
+          }
+        }
+        container.appendChild(el);
+      });
+    }
+
+    function nextMilestoneThreshold(){
+      const current = state.analytics?.streak || 0;
+      for(const ms of MILESTONES){
+        if(current < ms.threshold) return ms.threshold;
+      }
+      return null;
+    }
+
+    function checkMilestones(){
+      const current = state.analytics?.streak || 0;
+      MILESTONES.forEach(ms=>{
+        const t = ms.threshold;
+        const already = state.analytics.milestonesUnlocked && state.analytics.milestonesUnlocked[t];
+        if(current >= t && !already){
+          awardMilestone(ms);
+        }
+      });
+    }
+
+    function awardMilestone(ms){
+      state.analytics.milestonesUnlocked = state.analytics.milestonesUnlocked || {};
+      state.analytics.milestonesUnlocked[ms.threshold] = todayStr();
+      state.analytics.badges = state.analytics.badges || [];
+      state.analytics.badges.push({ id: ms.id, name: ms.name, date: todayStr() });
+      const container = $('#milestonesContainer');
+      if(container){
+        renderMilestones();
+        const pill = container.querySelector(`.milestone[data-threshold="${ms.threshold}"]`);
+        if(pill){ pill.classList.add('unlocking'); setTimeout(()=> pill.classList.remove('unlocking'), 900); }
+      }
+      toast(`Milestone unlocked: ${ms.name}`);
+      state.analytics.xp = (state.analytics.xp || 0) + Math.max(8, Math.round(ms.threshold/1.5));
+      launchConfettiBig();
+      commit();
+    }
+
+    /* =========================
+       LOGIC & HANDLERS (tasks)
+    ==========================*/
+    function openGoalModal(id){
+      const isMain = id==='main';
+      const goal = isMain? state.mainGoal : state.goals.find(g=>g.id===id);
+      $('#goalModalTitle').textContent = isMain? 'Edit Main Goal':'Edit Goal';
+      $('#goalName').value = goal?.name||'';
+      $('#goalColor').value = goal?.color||'#FFD95A';
+      $('#goalUnit').value = goal?.unit||'';
+      $('#goalProgress').value = goal?.progress||0;
+      $('#goalDelete').style.display = isMain? 'none':'inline-flex';
+      goalModal.dataset.id = id;
+      goalModal.showModal();
+    }
+
+    $('#goalSave').onclick = ()=>{
+      const id = goalModal.dataset.id;
+      const obj = {
+        name: $('#goalName').value.trim()||'Untitled',
+        color: $('#goalColor').value,
+        unit: $('#goalUnit').value.trim(),
+        progress: Math.max(0, Math.min(100, Number($('#goalProgress').value||0)))
+      };
+      if(id==='main'){ Object.assign(state.mainGoal, obj); }
+      else{
+        const g = state.goals.find(x=>x.id===id);
+        if(g) Object.assign(g, obj);
+      }
+      goalModal.close(); commit();
+    };
+    $('#goalDelete').onclick = ()=>{
+      const id = goalModal.dataset.id;
+      state.goals = state.goals.filter(g=>g.id!==id);
+      goalModal.close(); commit();
+    };
+
+    $('#btnEditMainGoal').onclick=()=>openGoalModal('main');
+    $('#btnAddGoal').onclick=()=>{ const id=uid(); state.goals.push({id, name:'New goal', unit:'', color:'#8B5CF6', progress:0}); commit(); openGoalModal(id); };
+
+    function openTaskModal(id, type){
+      const task = state.tasks.find(t=>t.id===id);
+      if(!task) return;
+      taskModal.dataset.id = id;
+      taskModal.dataset.type = task.isDaily ? 'daily' : 'todo';
+      $('#taskName').value = task.name;
+      $('#taskCategory').value = task.category;
+      $('#taskType').value = task.isDaily ? 'daily' : 'todo';
+      taskModal.showModal();
+    }
+    $('#taskSave').onclick=()=>{
+      const id = taskModal.dataset.id;
+      const fromType = taskModal.dataset.type;
+      const to = $('#taskType').value;
+      const obj = { name: $('#taskName').value.trim()||'Untitled', category: $('#taskCategory').value };
+      const t = state.tasks.find(x=>x.id===id);
+      if(t) Object.assign(t, obj);
+      if(t){
+        const toIsDaily = to === 'daily';
+        if(t.isDaily !== toIsDaily){
+          moveTask(id, t.isDaily ? 'daily' : 'todo', to);
+        }
+      }
+      taskModal.close(); commit();
+    };
+    $('#taskDelete').onclick=()=>{
+      const id = taskModal.dataset.id;
+      state.tasks = state.tasks.filter(t=>t.id!==id);
+      if(runtime.selectedTaskId === id) runtime.selectedTaskId = null;
+      taskModal.close(); commit();
+    };
+    $('#taskArchive').onclick=()=>{
+      const id = taskModal.dataset.id;
+      archiveTask(id); taskModal.close(); commit(); checkAllCompletedTriggers();
+    };
+
+    function archiveTask(id){
+      const idx = state.tasks.findIndex(t=>t.id===id);
+      if(idx>-1){
+        const [t] = state.tasks.splice(idx,1);
+        state.archived.unshift({ id: t.id, name: t.name, category: t.category, isDaily: !!t.isDaily, completed: !!t.completed, archivedAt: todayStr() });
+        if(runtime.selectedTaskId === id) runtime.selectedTaskId = null;
+        commit();
+        checkAllCompletedTriggers();
+      }
+    }
+
+    // moveTask now only converts type when from !== to and adjusts completed sensibly
+    function moveTask(id, from, to){
+      const t = state.tasks.find(x=>x.id===id);
+      if(!t) return;
+      const fromIsDaily = (from === 'daily');
+      const toIsDaily = (to === 'daily');
+      if(fromIsDaily === toIsDaily) return; // no-op for same-type (reorder should be used instead)
+
+      if(toIsDaily && !fromIsDaily){
+        // todo -> daily: make it daily and reset completed (dailies repeat)
+        t.isDaily = true;
+        t.completed = false;
+        t.completedOn = '';
+      } else if(!toIsDaily && fromIsDaily){
+        // daily -> todo: convert to todo, keep completed if it was completed today
+        t.isDaily = false;
+        const completedToday = !!t.completedOn && t.completedOn === todayStr();
+        t.completed = completedToday;
+      }
+      commit();
+      checkAllCompletedTriggers();
+    }
+
+    function toggleTaskComplete(id){
+      const t = state.tasks.find(x=>x.id===id);
+      if(!t) return;
+      const wasCompleted = !!t.completed;
+      t.completed = !wasCompleted;
+      if(t.isDaily){
+        // for dailies, store completedOn for analytics
+        t.completedOn = t.completed ? todayStr() : '';
+      } else {
+        // todos keep boolean completed
+        t.completed = !!t.completed;
+      }
+      if(!wasCompleted && t.completed) state.analytics.xp = (state.analytics.xp || 0) + (t.isDaily ? 1 : 2);
+      commit();
+      checkAllCompletedTriggers();
+    }
+
+    function checkAllCompletedTriggers(){
+      const today = todayStr();
+      const dailies = tasksByType(true);
+      if(dailies.length > 0){
+        const allDone = dailies.every(t => !!t.completed);
+        if(allDone && state.notificationsMeta.lastAllDailiesConfettiFor !== today){
+          state.notificationsMeta.lastAllDailiesConfettiFor = today;
+          state.analytics.xp = (state.analytics.xp || 0) + 10;
+          state.analytics.badges = state.analytics.badges || [];
+          state.analytics.badges.push({ id: `dailies_complete_${today}`, name: 'All Dailies Complete', date: today });
+          commit();
+          launchConfettiBig();
+        }
+      }
+      const todos = tasksByType(false);
+      if(todos.length > 0){
+        const allDone = todos.every(t => !!t.completed);
+        if(allDone && state.notificationsMeta.lastAllTodosConfettiFor !== today){
+          state.notificationsMeta.lastAllTodosConfettiFor = today;
+          state.analytics.xp = (state.analytics.xp || 0) + 12;
+          state.analytics.badges = state.analytics.badges || [];
+          state.analytics.badges.push({ id: `todos_complete_${today}`, name: 'All ToDos Complete', date: today });
+          commit();
+          launchConfettiBig();
+        }
+      }
+    }
+
+    /* ===== Archive modal handlers ===== */
+    $('#btnOpenArchive').onclick=()=>{ renderArchive(); archiveModal.showModal(); };
+    $('#archSearch').oninput=renderArchive;
+    $('#archFilter').onchange=renderArchive;
+    $('#archSelectAll').onclick=()=> $$('#archiveList .archChk').forEach(c=>c.checked=true);
+    $('#archUnarchive').onclick=()=>{
+      const checkedBoxes = $$('#archiveList .archChk').filter(cb => cb.checked);
+      const ids = checkedBoxes.map(cb => cb.closest('.item').dataset.id);
+      ids.forEach(id => {
+        const idx = state.archived.findIndex(a => a.id === id);
+        if(idx > -1){
+          const a = state.archived.splice(idx, 1)[0];
+          state.tasks.unshift({id: a.id, name: a.name, category: a.category, isDaily: !!a.isDaily, completed: !!a.completed});
+        }
+      });
+      commit();
+    };
+
+    // Add buttons
+    $('#btnAddTask').onclick=()=>{ const t={id:uid(), name:'New task', category:'business', isDaily:false, completed:false, createdAt:new Date().toISOString()}; state.tasks.unshift(t); commit(); openTaskModal(t.id); };
+    $('#btnAddDaily').onclick=()=>{ const t={id:uid(), name:'New daily', category:'health', isDaily:true, completed:false, createdAt:new Date().toISOString()}; state.tasks.unshift(t); commit(); openTaskModal(t.id); };
+
+    $('#btnSaveAll').onclick=()=>{ commit(); toast('Saved'); };
+
+    /* ===== Pomodoro (shared with focus overlay) ===== */
+    let pomo = {work:25, rest:5, mode:'work', remaining:25*60, timer:null};
+    const timeEl=$('#pomoTime');
+    function setPreset(w,r){ pomo.work=w; pomo.rest=r; pomo.mode='work'; pomo.remaining=w*60; updatePomo(); updatePomoButtons(); }
+    function updatePomo(){ if(timeEl) timeEl.textContent = fmt(pomo.remaining); const f = $('#focusPomoTime'); if(f) f.textContent = fmt(pomo.remaining); }
+    function onPomoWorkSessionEnd(){
+      try {
+        if(runtime && runtime.selectedTaskId && runtime.focusOverlayOpen){
+          const auto = !!(state.settings && state.settings.focus && state.settings.focus.autoMarkAfterSession);
+          if(auto){
+            toggleTaskComplete(runtime.selectedTaskId);
+          } else {
+            toast('Session ended — mark task?');
+          }
+        }
+      } catch(e){ console.error('onPomoWorkSessionEnd error', e); }
+    }
+    function tick(){
+      if(pomo.remaining>0){ pomo.remaining--; updatePomo(); }
+      else {
+        if(pomo.mode==='work'){
+          onPomoWorkSessionEnd();
+          pomo.mode='rest'; pomo.remaining=pomo.rest*60; toast('Break time');
+        } else {
+          pomo.mode='work'; pomo.remaining=pomo.work*60; toast('Back to work');
+        }
+        updatePomoButtons();
+      }
+    }
+
+    function startPomoTimer(){ if(pomo.timer) return; pomo.timer = setInterval(tick, 1000); updatePomoButtons(); }
+    function pausePomoTimer(){ if(!pomo.timer) return; clearInterval(pomo.timer); pomo.timer = null; updatePomoButtons(); }
+    function togglePomoTimer(){ if(pomo.timer) pausePomoTimer(); else startPomoTimer(); }
+    function resetPomoTimer(){ clearInterval(pomo.timer); pomo.timer=null; setPreset(pomo.work, pomo.rest); updatePomoButtons(); }
+
+    function updatePomoButtons(){
+      const mainBtn = $('#pomoStart');
+      const focusBtn = $('#focusPomoStart');
+      const text = pomo.timer ? 'Pause' : 'Start';
+      if(mainBtn) mainBtn.textContent = text;
+      if(focusBtn) focusBtn.textContent = text;
+      if(timeEl) timeEl.textContent = fmt(pomo.remaining);
+      const f = $('#focusPomoTime'); if(f) f.textContent = fmt(pomo.remaining);
+    }
+
+    $('#pomoStart').onclick = ()=> togglePomoTimer();
+    $('#pomoReset').onclick = ()=> resetPomoTimer();
+    $$('.presets [data-preset]').forEach(b=> b.onclick=()=>{ const [w,r] = b.dataset.preset.split('-').map(n=>+n); setPreset(w,r); });
+    setPreset(25,5);
+
+    /* Focus overlay controls */
+    $('#btnEnterFocus').onclick = ()=>{
+      if(!runtime.selectedTaskId){ toast('Select a task first'); return; }
+      openFocusOverlay(runtime.selectedTaskId);
+    };
+    function openFocusOverlay(taskId){
+      if(!taskId) return;
+      runtime.focusOverlayOpen = true;
+      const t = state.tasks.find(x=>x.id===taskId);
+      $('#focusTaskTitle').textContent = t ? t.name : '';
+      $('#focusAutoMark').checked = !!(state.settings && state.settings.focus && state.settings.focus.autoMarkAfterSession);
+      focusModal.showModal();
+      updatePomoButtons();
+    }
+    function closeFocusOverlay(){ runtime.focusOverlayOpen = false; try{ focusModal.close(); }catch(e){} pausePomoTimer(); }
+    $('#focusExit').onclick = ()=> closeFocusOverlay();
+    $('#focusPomoStart').onclick = ()=> togglePomoTimer();
+    $('#focusPomoReset').onclick = ()=> resetPomoTimer();
+    $('#focusAutoMark').onchange = (e) => {
+      state.settings = state.settings || {}; state.settings.focus = state.settings.focus || {};
+      state.settings.focus.autoMarkAfterSession = !!e.target.checked; commit();
+    };
+    function updateFocusOverlayUI(){
+      const ftime = $('#focusPomoTime'); if(ftime) ftime.textContent = fmt(pomo.remaining);
+      const fb = $('#focusPomoStart'); if(fb) fb.textContent = pomo.timer ? 'Pause' : 'Start';
+      if(runtime.focusOverlayOpen){
+        if(!focusModal.open) try{ focusModal.showModal(); }catch(e){} 
+      }
+    }
+
+    /* ===== Confetti particle system (adapted & simplified) ===== */
+    const confettiCanvas = document.getElementById('confettiCanvas');
+    const confettiCtx = confettiCanvas && confettiCanvas.getContext ? confettiCanvas.getContext('2d') : null;
+    let confettiAnimationId = null;
+    function resizeConfettiCanvas(){
+      if(!confettiCanvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      const h = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+      confettiCanvas.width = Math.round(w * dpr);
+      confettiCanvas.height = Math.round(h * dpr);
+      confettiCanvas.style.width = w + 'px';
+      confettiCanvas.style.height = h + 'px';
+      confettiCtx && confettiCtx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    window.addEventListener('resize', resizeConfettiCanvas);
+
+    function launchConfettiSubtle(){
+      if(!confettiCtx || !state.settings.confettiEnabled) { toast('Nice!'); return; }
+      if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      resizeConfettiCanvas();
+      confettiCanvas.style.display = 'block';
+      const colors = ['#FFD95A','#FF8A65','#8B5CF6','#22C55E','#3B82F6'];
+      const particles = [];
+      const count = 40;
+      for(let i=0;i<count;i++){
+        particles.push({
+          x: Math.random() * confettiCanvas.width,
+          y: -10 - Math.random()*100,
+          vx: (Math.random()-0.5)*2,
+          vy: 2 + Math.random()*3,
+          size: 6 + Math.random()*8,
+          rot: Math.random()*360,
+          vr: (Math.random()-0.5)*10,
+          color: colors[Math.floor(Math.random()*colors.length)],
+          life: 100 + Math.random()*80
+        });
+      }
+      let last = performance.now();
+      function step(now){
+        const dt = (now-last)/16.666; last = now;
+        confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+        particles.forEach((p, idx) => {
+          p.x += p.vx * dt * 1.2;
+          p.y += p.vy * dt;
+          p.vy += 0.06 * dt;
+          p.rot += p.vr * dt;
+          p.life -= dt*1.5;
+          confettiCtx.save();
+          confettiCtx.translate(p.x, p.y);
+          confettiCtx.rotate(p.rot * Math.PI / 180);
+          confettiCtx.fillStyle = p.color;
+          confettiCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6);
+          confettiCtx.restore();
+        });
+        for(let i=particles.length-1;i>=0;i--){
+          if(particles[i].life <= 0 || particles[i].y > confettiCanvas.height+50) particles.splice(i,1);
+        }
+        if(particles.length>0) confettiAnimationId = requestAnimationFrame(step);
+        else { confettiCanvas.style.display='none'; confettiAnimationId = null; confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height); }
+      }
+      if(confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+      confettiAnimationId = requestAnimationFrame(step);
+    }
+
+    function launchConfettiBig(){
+      if(!confettiCtx || !state.settings.confettiEnabled) { toast('Nice!'); return; }
+      if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      resizeConfettiCanvas();
+      confettiCanvas.style.display = 'block';
+      const colors = ['#FFD95A','#FF8A65','#8B5CF6','#22C55E','#3B82F6','#FFD166'];
+      const particles = [];
+      const count = 120;
+      for(let i=0;i<count;i++){
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random()*6;
+        particles.push({
+          x: confettiCanvas.width/2 + (Math.random()-0.5)*200,
+          y: confettiCanvas.height*0.15 + (Math.random()-0.5)*80,
+          vx: Math.cos(angle)*speed,
+          vy: Math.sin(angle)*speed + 1,
+          size: 6 + Math.random()*10,
+          rot: Math.random()*360,
+          vr: (Math.random()-0.5)*12,
+          color: colors[Math.floor(Math.random()*colors.length)],
+          life: 160 + Math.random()*140
+        });
+      }
+      let last = performance.now();
+      function step(now){
+        const dt = (now-last)/16.666; last = now;
+        confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+        particles.forEach((p, idx) => {
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vy += 0.08 * dt;
+          p.vx *= 0.998;
+          p.rot += p.vr * dt;
+          p.life -= dt*1.1;
+          confettiCtx.save();
+          confettiCtx.translate(p.x, p.y);
+          confettiCtx.rotate(p.rot * Math.PI / 180);
+          confettiCtx.fillStyle = p.color;
+          confettiCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6);
+          confettiCtx.restore();
+        });
+        for(let i=particles.length-1;i>=0;i--){
+          if(particles[i].life <= 0 || particles[i].y > confettiCanvas.height+60) particles.splice(i,1);
+        }
+        if(particles.length>0) confettiAnimationId = requestAnimationFrame(step);
+        else { confettiCanvas.style.display='none'; confettiAnimationId = null; confettiCtx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height); }
+      }
+      if(confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+      confettiAnimationId = requestAnimationFrame(step);
+    }
+
+    /* ===== Radar (animated canvas drawing) ===== */
+    let prevRadarValues = ['business','health','growth','family','network'].map(()=>0);
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const radarCats = ['business','health','growth','family','network'];
+    const radarLabels = ['Business','Health','Growth','Family','Network'];
+
+    function renderRadar(duration = 380){
+      const canvas = document.getElementById('radar'); if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const values = radarCats.map(c => countCompletedByCategory(c));
+      const maxVal = Math.max(1, ...values);
+      const ratio = window.devicePixelRatio || 1;
+      const cssW = canvas.clientWidth || 300; const cssH = canvas.clientHeight || Math.round(cssW * 0.66);
+      const targetW = Math.round(cssW * ratio); const targetH = Math.round(cssH * ratio);
+      if (canvas.width !== targetW || canvas.height !== targetH){ canvas.width = targetW; canvas.height = targetH; }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const startValues = prevRadarValues.slice(); const targetValues = values.slice();
+      if (prefersReducedMotion || duration <= 0) { prevRadarValues = targetValues.slice(); drawRadar(1); return; }
+      const startTime = performance.now();
+      function step(now){ const t = Math.min(1, (now - startTime) / duration); drawRadar(t); if (t < 1) requestAnimationFrame(step); else prevRadarValues = targetValues.slice(); }
+      function drawRadar(tFrac){
+        const interp = startValues.map((s,i) => s + (targetValues[i] - s) * tFrac);
+        ctx.clearRect(0,0,canvas.width/ratio, canvas.height/ratio);
+        const W = cssW, H = cssH, cx = W / 2, cy = H / 2 + 6, rings = 4, pad = 26, radius = Math.min(W, H) / 2 - pad;
+        ctx.save(); ctx.translate(cx, cy); ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+        for (let r=1; r<=rings; r++){ ctx.beginPath(); ctx.arc(0,0,radius * (r / rings), 0, Math.PI * 2); ctx.stroke(); }
+        ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '12px Inter, system-ui, sans-serif'; ctx.textBaseline = 'middle';
+        radarCats.forEach((cat,i) => {
+          const ang = -Math.PI/2 + (i * (Math.PI*2) / radarCats.length);
+          const x = Math.cos(ang) * radius; const y = Math.sin(ang) * radius;
+          ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x,y); ctx.stroke();
+          const lx = Math.cos(ang) * (radius + 12); const ly = Math.sin(ang) * (radius + 12);
+          ctx.textAlign = lx > 0 ? 'left' : (lx < 0 ? 'right' : 'center'); ctx.fillText(radarLabels[i], lx, ly);
+        });
+        const points = interp.map((v,i) => { const a = -Math.PI/2 + (i * (Math.PI*2) / radarCats.length); const rr = (v / Math.max(1, maxVal)) * radius; return { x: Math.cos(a) * rr, y: Math.sin(a) * rr }; });
+        ctx.beginPath(); points.forEach((p,i) => i === 0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y)); ctx.closePath();
+        ctx.fillStyle = 'rgba(212,175,55,0.18)'; ctx.strokeStyle = 'rgba(212,175,55,0.9)'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+      requestAnimationFrame(step);
+    }
+
+    function countCompletedByCategory(cat){
+      const archived = state.archived.filter(a=>a.category===cat && !!a.completed).length;
+      const doneDaily = state.tasks.filter(t=>t.isDaily && t.category===cat && !!t.completed).length;
+      const doneTodo = state.tasks.filter(t=>!t.isDaily && t.category===cat && !!t.completed).length;
+      return archived + doneDaily + doneTodo;
+    }
+
+    /* ===== Analytics modal charts (updated to use history for line chart) ===== */
+    const analyticsCharts = { donut: null, bar: null, line: null };
+    function destroyAnalyticsCharts(){
+      Object.keys(analyticsCharts).forEach(k=>{
+        const ch = analyticsCharts[k];
+        if(ch){
+          try{ ch.destroy(); }catch(e){ /* ignore */ }
+          analyticsCharts[k] = null;
+        }
+      });
+
+      // Reset inline canvas sizing we may have set for stable donut rendering
+      ['donutChart','barChart','lineChart'].forEach(id=>{
+        const c = document.getElementById(id);
+        if(c){
+          c.style.width = '';
+          c.style.height = '';
+          // also clear the attribute sized pixels Chart might have set
+          try { c.removeAttribute('width'); c.removeAttribute('height'); } catch(e) {}
+        }
+      });
+    }
+
+
+    function computeAnalyticsData(days=14){
+      const activeTodos = state.tasks.filter(t => !t.isDaily) || [];
+      const activeDailies = state.tasks.filter(t => t.isDaily) || [];
+      const archived = state.archived || [];
+      const completedActiveTodos = activeTodos.filter(t=>!!t.completed).length;
+      const completedActiveDailies = activeDailies.filter(t=>!!t.completed).length;
+      const completedActive = completedActiveTodos + completedActiveDailies;
+      const totalActive = activeTodos.length + activeDailies.length;
+      const pendingActive = Math.max(0, totalActive - completedActive);
+      const keys = ['business','health','growth','family','network'];
+      const completedArr=[]; const pendingArr=[];
+      keys.forEach(cat=>{
+        const todosCat = activeTodos.filter(t=>t.category===cat);
+        const dailiesCat = activeDailies.filter(t=>t.category===cat);
+        const compTodos = todosCat.filter(t=>!!t.completed).length;
+        const compDailies = dailiesCat.filter(t=>!!t.completed).length;
+        const comp = compTodos + compDailies;
+        const pending = (todosCat.length + dailiesCat.length) - comp;
+        completedArr.push(comp); pendingArr.push(pending);
+      });
+
+      const labels = [];
+      const counts = [];
+      const dayMap = {};
+      (state.history || []).forEach(snap=>{
+        let completed = 0;
+        if(snap.summary && typeof snap.summary.completedDaily === 'number' && typeof snap.summary.completedTodos === 'number'){
+          completed = (snap.summary.completedDaily || 0) + (snap.summary.completedTodos || 0);
+        } else if(Array.isArray(snap.tasks)){
+          completed = snap.tasks.filter(tt => !!tt.completed).length;
+        }
+        dayMap[snap.date] = completed;
+      });
+      for(let i=days-1;i>=0;i--){
+        const d = new Date(Date.now() - i*86400000);
+        const dateKey = d.toISOString().slice(0,10);
+        labels.push(dateKey);
+        counts.push(dayMap[dateKey] || 0);
+      }
+
+      return {
+        donut:{completed:completedActive, pending:pendingActive, totalActive},
+        stacked:{labels:['Business','Health','Growth','Family','Network'], completed:completedArr, pending:pendingArr},
+        line:{labels, counts},
+        streaks:{ currentStreak: state.analytics?.streak || 0, longestStreak: state.analytics?.longest || 0 }
+      };
+    }
+
+    function renderAnalyticsModal(){
+      if(typeof Chart === 'undefined') return;
+      destroyAnalyticsCharts();
+      const data = computeAnalyticsData(14);
+      const getCssColor = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#D4AF37';
+
+      //
+      // DONUT: set a stable pixel size on the canvas before creating the chart
+      //
+      const donutCanvas = $('#donutChart');
+      if(donutCanvas){
+        // find the wrapping container (chart-wrap) and the CSS variable cap
+        const wrap = donutCanvas.closest('.chart-wrap');
+        const cssMax = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--donut-size')) || 160;
+        const wrapW = wrap ? Math.max(80, wrap.clientWidth) : donutCanvas.clientWidth || cssMax;
+        // choose a size that's the min of available width and the CSS cap
+        const size = Math.min(cssMax, wrapW);
+        // apply a fixed pixel size so Chart.js has a stable target to render to
+        donutCanvas.style.width = size + 'px';
+        donutCanvas.style.height = size + 'px';
+        // ensure Chart.js renders to the CSS pixel size by using maintainAspectRatio:false
+        const dctx = donutCanvas.getContext('2d');
+        analyticsCharts.donut = new Chart(dctx, {
+          type:'doughnut',
+          data:{ labels:['Completed','Pending'], datasets:[{ data:[data.donut.completed,data.donut.pending], backgroundColor:[getCssColor('--gold'), 'rgba(255,255,255,0.08)'], borderWidth:0 }] },
+          options:{
+            plugins:{ legend:{ position:'bottom' } },
+            responsive:true,
+            maintainAspectRatio:false,
+            cutout:'60%',
+            animation:{ duration:360 }
+          }
+        });
+      }
+
+      //
+      // BAR & LINE: keep them responsive but avoid forcing aspect ratio (prevents resize loops)
+      //
+      const bctx = $('#barChart').getContext('2d');
+      analyticsCharts.bar = new Chart(bctx, {
+        type:'bar',
+        data:{ labels:data.stacked.labels, datasets:[
+          { label:'Completed', data:data.stacked.completed, backgroundColor:['#3B82F6','#22C55E','#8B5CF6','#FF8A65','#FFD166'] },
+          { label:'Pending', data:data.stacked.pending, backgroundColor:'rgba(255,255,255,0.12)' }
+        ]},
+        options:{
+          plugins:{ legend:{ position:'top' } },
+          scales:{ x:{ stacked:true, ticks:{ color:'#bbb' }}, y:{ stacked:true, beginAtZero:true, ticks:{ color:'#bbb' }} },
+          maintainAspectRatio:false,
+          responsive:true,
+          animation:{ duration:300 }
+        }
+      });
+
+      const lctx = $('#lineChart').getContext('2d');
+      analyticsCharts.line = new Chart(lctx, {
+        type:'line',
+        data:{ labels:data.line.labels, datasets:[{ label:'Completions', data:data.line.counts, fill:true, tension:0.2, backgroundColor:'rgba(255,217,90,0.12)', borderColor:getCssColor('--gold'), pointRadius:3 }] },
+        options:{
+          plugins:{ legend:{ display:false } },
+          scales:{ x:{ ticks:{ color:'#bbb' }}, y:{ ticks:{ color:'#bbb' }, beginAtZero:true } },
+          maintainAspectRatio:false,
+          responsive:true,
+          animation:{ duration:300 }
+        }
+      });
+
+      $('#modalCurrentStreak').textContent = data.streaks.currentStreak;
+      $('#modalLongestStreak').textContent = data.streaks.longestStreak;
+    }
+
+    function initAnalyticsModal(){
+      const btn = document.getElementById('btnMoreAnalytics'); const closeBtn = document.getElementById('closeAnalytics');
+      if(btn){
+        btn.onclick = ()=>{
+          analyticsModal.showModal();
+          requestAnimationFrame(()=> renderAnalyticsModal());
+          setTimeout(()=> closeBtn && closeBtn.focus(), 160);
+        };
+      }
+      if(closeBtn){
+        closeBtn.onclick = ()=>{ destroyAnalyticsCharts(); analyticsModal.close(); };
+      }
+      analyticsModal.addEventListener('close', ()=> destroyAnalyticsCharts());
+    }
+
+    /* ===== ROLLOVER SUMMARY modal logic ===== */
+    function computeLatestSnapshot(){
+      if(!Array.isArray(state.history) || state.history.length === 0) return null;
+      return state.history[0]; // most recent snapshot (yesterday typically)
+    }
+
+    function renderRolloverSummary(){
+      const snap = computeLatestSnapshot();
+      const content = $('#rolloverContent');
+      if(!content) return;
+      content.innerHTML = '';
+      if(!snap){
+        content.innerHTML = `<div class="muted">No rollover data yet.</div>`;
+        return;
+      }
+      const date = snap.date || '(unknown)';
+      const summary = snap.summary || {};
+      const completedList = (snap.tasks || []).filter(t=>!!t.completed);
+
+      const badges = (state.analytics && Array.isArray(state.analytics.badges)) ? state.analytics.badges.filter(b => b.date === date) : [];
+
+      const html = `
+        <div style="margin-bottom:8px;"><strong>Date:</strong> ${escapeHtml(date)}</div>
+        <div style="display:flex; gap:12px; margin-bottom:8px;">
+          <div><strong>Daily done</strong><div class="muted">${summary.completedDaily||0} / ${summary.totalDaily||0}</div></div>
+          <div><strong>Todos archived</strong><div class="muted">${summary.completedTodos||0}</div></div>
+          <div><strong>Streak before</strong><div class="muted">${snap.streakBefore||0}</div></div>
+        </div>
+        <div style="margin-top:6px;"><strong>Tasks completed that day</strong><div class="list" style="margin-top:6px; max-height:180px; overflow:auto;">
+          ${completedList.length ? completedList.map(t=>`<div class="item" style="padding:8px;"><div style="display:flex;gap:8px;align-items:center;"><span class="dot ${escapeHtml(t.category)}"></span><div><div class="title">${escapeHtml(t.name)}</div><div class="pill">${escapeHtml(t.category)}</div></div></div></div>`).join('') : '<div class="muted" style="padding:8px;">No tasks completed</div>'}
+        </div></div>
+        <div style="margin-top:8px;"><strong>Badges awarded</strong>
+          <div class="muted" style="margin-top:6px;">
+            ${badges.length ? badges.map(b=>`${escapeHtml(b.name)} (${escapeHtml(b.date)})`).join('<br>') : 'None'}
+          </div>
+        </div>
+      `;
+      content.innerHTML = html;
+    }
+
+    function initRolloverModal(){
+      const btn = $('#btnRolloverSummary');
+      const closeBtn = $('#closeRollover');
+      if(btn){
+        btn.onclick = ()=>{
+          renderRolloverSummary();
+          rolloverModal.showModal();
+          setTimeout(()=> closeBtn && closeBtn.focus(), 80);
+        };
+      }
+      if(closeBtn){
+        closeBtn.onclick = ()=> rolloverModal.close();
+      }
+    }
+
+    /* ===== GOOD MORNING modal logic ===== */
+    function renderGoodMorningContent(){
+      const content = $('#goodMorningContent');
+      if(!content) return;
+      const now = new Date();
+      const hour = now.getHours();
+      const greetings = hour < 12 ? 'Good morning' : (hour < 18 ? 'Good afternoon' : 'Hello');
+      const streak = state.analytics?.streak || 0;
+      // gather today's dailies (they are the dailies array; today not yet rolled)
+      const dailies = state.tasks.filter(t => t.isDaily) || [];
+      const done = dailies.filter(d => !!d.completed).length;
+      const total = dailies.length;
+      const messages = [
+        "Make today count 💪",
+        "Small steps build big wins ✨",
+        "You’ve got this — focus and ship 🔧",
+        "Keep the streak alive! 🔥"
+      ];
+      const msg = messages[Math.floor(Math.random()*messages.length)];
+      content.innerHTML = `
+        <div style="font-size:16px; margin-bottom:6px;"><strong>${greetings} — ${escapeHtml(msg)}</strong></div>
+        <div style="margin-bottom:6px;">Current streak: <b>${streak}</b></div>
+        <div style="margin-bottom:6px;">Daily progress: <b>${done}/${total}</b></div>
+        <div style="max-height:200px; overflow:auto; margin-top:8px;">
+          ${dailies.length ? dailies.map(d => `<div style="display:flex; gap:8px; align-items:center; padding:6px;"><span class="dot ${d.category}"></span><div><div style="font-weight:600">${escapeHtml(d.name)}</div><div class="muted" style="font-size:12px">${d.completed? 'Done':'Pending'}</div></div></div>`).join('') : '<div class="muted">No daily tasks set.</div>'}
+        </div>
+      `;
+    }
+
+    function showGoodMorning(manual=false){
+      // if disabled and not manual, skip
+      if(!manual && !(state.settings && state.settings.goodMorning && state.settings.goodMorning.enabled)) return;
+      // if already shown today, skip
+      const today = todayStr();
+      if(!manual && state.settings.goodMorning.lastShown === today) return;
+      renderGoodMorningContent();
+      goodMorningModal.showModal();
+      // set lastShown when displayed
+      if(!manual){
+        state.settings.goodMorning.lastShown = today;
+        save();
+      }
+    }
+
+    function initGoodMorningWatcher(){
+      // manual button hookup
+      const btn = $('#btnShowGoodMorning');
+      if(btn) btn.onclick = ()=> showGoodMorning(true);
+
+      function checkGoodMorningTime(){
+        try {
+          const gm = state.settings && state.settings.goodMorning;
+          if(!gm || !gm.enabled) return;
+          const now = new Date();
+          const h = now.getHours();
+          const m = now.getMinutes();
+          // when minute and hour match, and not shown today -> show
+          if(h === (gm.hour || 0) && m === (gm.minute || 0)){
+            const today = todayStr();
+            if(gm.lastShown !== today){
+              showGoodMorning(false);
+            }
+          }
+        } catch(e){ console.error('checkGoodMorningTime err', e); }
+      }
+      // check every 30 seconds to be responsive but not heavy
+      checkGoodMorningTime();
+      setInterval(checkGoodMorningTime, 5000);
+    }
+
+    /* ===== Settings modal wiring ===== */
+    function pad2(n){ return String(n).padStart(2,'0'); }
+
+    function initSettingsModal(){
+      const btn = document.getElementById('btnOpenSettings');
+      const modal = document.getElementById('settingsModal');
+      const gmEnabled = document.getElementById('settings_goodMorning_enabled');
+      const gmTime = document.getElementById('settings_goodMorning_time');
+      const saveBtn = document.getElementById('btnSettingsSave');
+      const cancelBtn = document.getElementById('btnSettingsCancel');
+      const hideToggle = document.getElementById('hideCompletedToggle');
+
+      // Ensure an initial value for the time input exists
+      function populateFieldsFromState(){
+        const gm = (state && state.settings && state.settings.goodMorning) ? state.settings.goodMorning : { enabled:false, hour:8, minute:0 };
+        gmEnabled.checked = !!gm.enabled;
+        // set time input as HH:MM
+        const hh = pad2((typeof gm.hour === 'number') ? gm.hour : 8);
+        const mm = pad2((typeof gm.minute === 'number') ? gm.minute : 0);
+        gmTime.value = `${hh}:${mm}`;
+        // hide completed
+        hideToggle.checked = !!(state.settings && state.settings.hideCompleted);
+      }
+
+      if(btn){
+        btn.onclick = () => {
+          populateFieldsFromState();
+          try{ modal.showModal(); }catch(e){ /* older browsers may throw */ }
+          setTimeout(()=> saveBtn && saveBtn.focus(), 80);
+        };
+      }
+
+      if(cancelBtn) cancelBtn.onclick = () => { try{ modal.close(); }catch(e){} };
+
+      if(saveBtn){
+        saveBtn.onclick = ()=>{
+          state.settings = state.settings || {};
+          state.settings.goodMorning = state.settings.goodMorning || {};
+          state.settings.goodMorning.enabled = !!gmEnabled.checked;
+
+          // parse time input (HH:MM)
+          if(gmTime.value && /^\d{2}:\d{2}$/.test(gmTime.value)){
+            const [hh,mm] = gmTime.value.split(':').map(n => parseInt(n,10));
+            state.settings.goodMorning.hour = Math.max(0, Math.min(23, hh || 0));
+            state.settings.goodMorning.minute = Math.max(0, Math.min(59, mm || 0));
+          }
+
+          // hide completed
+          state.settings.hideCompleted = !!(hideToggle && hideToggle.checked);
+
+          // commit and close
+          commit();
+          try{ modal.close(); }catch(e){}
+        };
+      }
+
+      // If toggle element exists elsewhere (it does in modal), we still want the runtime handler
+      if(hideToggle){
+        // Keep existing behaviour: wiring is already done by initHideCompletedToggle(),
+        // but in case it wasn't called yet, ensure onchange updates state.
+        hideToggle.onchange = () => {
+          state.settings = state.settings || {};
+          state.settings.hideCompleted = !!hideToggle.checked;
+          commit();
+        };
+      }
+    }
+
+    // dismiss/toggle handlers
+    $('#gmClose').onclick = ()=> { try{ goodMorningModal.close(); }catch(e){} };
+    $('#gmDismissToday').onclick = ()=>{
+      const today = todayStr();
+      state.settings = state.settings || {}; state.settings.goodMorning = state.settings.goodMorning || {};
+      state.settings.goodMorning.lastShown = today;
+      commit();
+      try{ goodMorningModal.close(); }catch(e){}
+    };
+
+    /* ===== DAILY ROLLOVER / SNAPSHOT logic =====*/
+    function summarizeTasksSnapshot(tasksArr){
+      const summary = { totalDaily:0, completedDaily:0, totalTodos:0, completedTodos:0, perCategory:{} };
+      tasksArr.forEach(t=>{
+        summary.perCategory[t.category] = summary.perCategory[t.category] || { total:0, completed:0 };
+        if(t.isDaily){
+          summary.totalDaily++;
+          if(t.completed) summary.completedDaily++;
+          summary.perCategory[t.category].total++;
+          if(t.completed) summary.perCategory[t.category].completed++;
+        } else {
+          summary.totalTodos++;
+          if(t.completed) summary.completedTodos++;
+          summary.perCategory[t.category].total++;
+          if(t.completed) summary.perCategory[t.category].completed++;
+        }
+      });
+      return summary;
+    }
+
+    function performDailyRollover(snapshotDate = yesterdayStr()){
+      if (!Array.isArray(state.history)) {
+        if (state.history && typeof state.history === 'object') {
+          try { state.history = Object.values(state.history); } catch(e) { state.history = []; }
+        } else {
+          state.history = [];
+        }
+      }
+
+      const snapshotTasks = state.tasks.map(t => ({ id:t.id, name:t.name, category:t.category, isDaily:!!t.isDaily, completed:!!t.completed }));
+      const summary = summarizeTasksSnapshot(snapshotTasks);
+      state.history = state.history || [];
+      state.history.unshift({ date: snapshotDate, tasks: snapshotTasks, summary, streakBefore: (state.analytics && state.analytics.streak) || 0 });
+      const MAX_HISTORY = 365;
+      if(state.history.length > MAX_HISTORY) state.history.length = MAX_HISTORY;
+
+      const remaining = [];
+      state.tasks.forEach(t=>{
+        if(!t.isDaily && t.completed){
+          state.archived.unshift({ id:t.id, name:t.name, category:t.category, isDaily:false, completed:true, archivedAt: snapshotDate });
+        } else {
+          remaining.push(t);
+        }
+      });
+      state.tasks = remaining;
+
+      state.tasks.forEach(t => { if(t.isDaily) t.completed = false; });
+
+      const totalDaily = summary.totalDaily;
+      const allDone = totalDaily > 0 && summary.completedDaily === totalDaily;
+      if(allDone){
+        state.analytics.streak = (state.analytics.streak || 0) + 1;
+        state.analytics.lastRollover = snapshotDate;
+        state.analytics.longest = Math.max(state.analytics.longest || 0, state.analytics.streak || 0);
+        state.analytics.xp = (state.analytics.xp || 0) + 10;
+        checkMilestones();
+      } else {
+        state.analytics.streak = 0;
+        state.analytics.lastRollover = snapshotDate;
+      }
+
+      commit();
+    }
+
+    /* ===== SAFE multi-day rollover runner + watcher =====*/
+    function safePerformDailyRollover(snapshotDate){
+      try {
+        const latestRaw = localStorage.getItem(storeKey);
+        if(latestRaw){
+          try {
+            const parsed = JSON.parse(latestRaw);
+            const latest = migrateState(parsed);
+            if(latest && latest.analytics && latest.analytics.lastRollover && latest.analytics.lastRollover >= snapshotDate){
+              state = latest; render(); return;
+            }
+            state = latest;
+          } catch(e){
+            console.warn('safePerformDailyRollover: failed to parse latest state, proceeding with in-memory state', e);
+          }
+        }
+      } catch(e){ console.error('safePerformDailyRollover read error', e); }
+
+      try { performDailyRollover(snapshotDate); } catch(err) { console.error('performDailyRollover failed:', err); }
+    }
+
+    function processRolloversUpTo(targetDateInclusive){
+      if(!targetDateInclusive) return;
+      const lastProcessed = state.analytics.lastRollover || addDays(yesterdayStr(), -1);
+      let cursor = addDays(lastProcessed, 1);
+      const MAX_BACKFILL = 60;
+      let days = 0;
+      while(cursor <= targetDateInclusive && days < MAX_BACKFILL){
+        safePerformDailyRollover(cursor);
+        cursor = addDays(cursor, 1);
+        days++;
+      }
+      if(days >= MAX_BACKFILL) console.warn('processRolloversUpTo: hit backfill cap of', MAX_BACKFILL);
+    }
+
+    /* ===== Date watcher (polling) ===== */
+    let currentDateCached = todayStr();
+    let dateWatcherId = null;
+
+    function checkForDateChange(){
+      try {
+        const nowDate = todayStr();
+        if(nowDate !== currentDateCached){
+          const lastKnown = state.analytics.lastRollover || addDays(yesterdayStr(), -1);
+          processRolloversUpTo(yesterdayStr());
+          currentDateCached = nowDate;
+        }
+      } catch(err){
+        console.error('checkForDateChange error', err);
+      }
+    }
+
+    function startDateWatcher(){
+      if(dateWatcherId) clearInterval(dateWatcherId);
+      dateWatcherId = setInterval(checkForDateChange, 5000);
+      checkForDateChange();
+    }
+
+    window.addEventListener('storage', (ev) => {
+      if(ev.key !== storeKey) return;
+      try {
+        const newState = JSON.parse(ev.newValue || '{}');
+        state = migrateState(newState);
+        render();
+      } catch(e){
+        console.error('Failed to parse updated state from storage event', e);
+      }
+    });
+
+    /* ===== init + misc wiring ===== */
+    function initDropZones(){
+      function getDragAfterElement(listEl, y){
+        const draggableElements = Array.from(listEl.querySelectorAll('.item:not(.dragging)'));
+        let closest = null;
+        let closestOffset = Number.NEGATIVE_INFINITY;
+        for(const child of draggableElements){
+          const rect = child.getBoundingClientRect();
+          const offset = y - (rect.top + rect.height / 2);
+          if(offset < 0 && offset > closestOffset){
+            closestOffset = offset;
+            closest = child;
+          }
+        }
+        return closest;
+      }
+
+      function onDragOver(e){
+        e.preventDefault();
+      }
+
+      function onDrop(e){
+        e.preventDefault();
+        try {
+          const payload = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+          const to = e.currentTarget.getAttribute('data-drop');
+          if(!payload || !payload.id || !payload.from) return;
+
+          const list = e.currentTarget;
+          const draggableElements = Array.from(list.querySelectorAll('.item:not(.dragging)'));
+          let closest = null; let closestOffset = Number.NEGATIVE_INFINITY;
+          for(const child of draggableElements){
+            const rect = child.getBoundingClientRect();
+            const offset = e.clientY - (rect.top + rect.height / 2);
+            if(offset < 0 && offset > closestOffset){
+              closestOffset = offset;
+              closest = child;
+            }
+          }
+          const beforeId = closest ? closest.dataset.id : null;
+
+          if(payload.from !== to){
+            moveTask(payload.id, payload.from, to);
+            const idx = state.tasks.findIndex(x => x.id === payload.id);
+            if(idx > -1){
+              const [taskObj] = state.tasks.splice(idx,1);
+              if(beforeId){
+                const insertIdx = state.tasks.findIndex(x => x.id === beforeId);
+                const finalIdx = insertIdx === -1 ? state.tasks.length : insertIdx;
+                state.tasks.splice(finalIdx, 0, taskObj);
+              } else {
+                let insertIdx = state.tasks.length;
+                for(let i = state.tasks.length - 1; i >= 0; i--){
+                  if(state.tasks[i].isDaily === (to === 'daily')){ insertIdx = i + 1; break; }
+                  if(i === 0) insertIdx = state.tasks.length;
+                }
+                state.tasks.splice(insertIdx, 0, taskObj);
+              }
+            }
+            commit();
+            checkAllCompletedTriggers();
+            return;
+          }
+
+          const fromIdx = state.tasks.findIndex(x => x.id === payload.id);
+          if(fromIdx === -1) return;
+          const [taskObj] = state.tasks.splice(fromIdx, 1);
+
+          if(beforeId){
+            const insertIdx = state.tasks.findIndex(x => x.id === beforeId);
+            const finalIdx = insertIdx === -1 ? state.tasks.length : insertIdx;
+            state.tasks.splice(finalIdx, 0, taskObj);
+          } else {
+            let insertIdx = state.tasks.length;
+            for(let i = state.tasks.length - 1; i >= 0; i--){
+              if(state.tasks[i].isDaily === taskObj.isDaily){ insertIdx = i + 1; break; }
+              if(i === 0) insertIdx = 0;
+            }
+            state.tasks.splice(insertIdx, 0, taskObj);
+          }
+          commit();
+        } catch(err){ console.error('drop handler error', err); }
+      }
+
+      $$('[data-drop]').forEach(zone=>{
+        zone.addEventListener('dragover', onDragOver);
+        zone.addEventListener('drop', onDrop);
+      });
+    }
+
+    function initHideCompletedToggle(){ const hideToggle = document.getElementById('hideCompletedToggle'); if(!hideToggle) return; hideToggle.checked = !!(state.settings && state.settings.hideCompleted); hideToggle.onchange = ()=>{ state.settings = state.settings || {}; state.settings.hideCompleted = !!hideToggle.checked; commit(); }; }
+
+    // wire analytics & rollover & good morning
+    initDropZones();
+    initHideCompletedToggle();
+    initSettingsModal();
+    initAnalyticsModal();
+    initRolloverModal();
+    initGoodMorningWatcher();
+
+    currentDateCached = todayStr();
+    // handle startup backfill if needed
+    function handleStartupRolloverCheck(){
+      const last = state.analytics.lastRollover || '';
+      const expected = yesterdayStr();
+      if(last !== expected){
+        safePerformDailyRollover(expected);
+      }
+    }
+    handleStartupRolloverCheck();
+
+    startDateWatcher();
+
+    resizeConfettiCanvas();
+
+    render();
+    window.addEventListener('resize', ()=> { renderRadar(0); resizeConfettiCanvas(); });
+
+    /* ===== Helpers ===== */
+    function toast(msg){ const c = $('#confetti'); if(!c) return; c.textContent = msg; c.style.display='block'; setTimeout(()=>{ c.style.display='none'; }, 1400); }
+    function fmt(s){ const m=Math.floor(s/60).toString().padStart(2,'0'); const ss=(s%60).toString().padStart(2,'0'); return `${m}:${ss}`; }
+    function hexToRgba(hex, a){ const h=hex.replace('#',''); const bigint=parseInt(h,16); const r=(bigint>>16)&255, g=(bigint>>8)&255, b=bigint&255; return `rgba(${r},${g},${b},${a})`; }
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  </script>
+
+<!-- Export / Import backup script (added) -->
+<script>
+(function(){
+  function exportStateToFile(){
+    try{
+      const payload = structuredClone(state);
+      const filename = `mainframe-backup-${todayStr()}.json`;
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      if(typeof toast === 'function') toast('Backup exported');
+    } catch(err){
+      console.error('Export failed', err);
+      if(typeof toast === 'function') toast('Export failed');
+    }
+  }
+
+  function handleImportedObject(rawObj){
+    try{
+      if(!rawObj || typeof rawObj !== 'object'){ if(typeof toast === 'function') toast('Invalid backup file'); return; }
+      // run migration to normalize shape if migrateState exists
+      var incoming = rawObj;
+      if(typeof migrateState === 'function') incoming = migrateState(rawObj);
+
+      // confirm Replace vs Merge
+      var willReplace = confirm(
+        'Replace entire app data with imported backup?\\n\\n' +
+        'Press OK to REPLACE (overwrite everything). Press Cancel to MERGE the backup into current data.'
+      );
+
+      if(willReplace){
+        state = incoming;
+        if(typeof commit === 'function') commit();
+        if(typeof toast === 'function') toast('Backup restored (replaced)');
+        return;
+      }
+
+      // MERGE: arrays deduped by id; incoming overrides when IDs collide.
+      var merged = structuredClone(state || {});
+
+      ['tasks','goals','archived','history'].forEach(function(key){
+        var cur = Array.isArray(merged[key]) ? merged[key] : [];
+        var inc = Array.isArray(incoming[key]) ? incoming[key] : [];
+        var map = new Map();
+        cur.forEach(function(it){
+          if(it && it.id) map.set(it.id, it); else if(it) map.set(JSON.stringify(it), it);
+        });
+        inc.forEach(function(it){
+          if(it && it.id) map.set(it.id, it); else if(it) map.set(JSON.stringify(it), it);
+        });
+        merged[key] = Array.from(map.values());
+      });
+
+      // Merge meta objects
+      merged.mainGoal = incoming.mainGoal || merged.mainGoal;
+      merged.analytics = Object.assign({}, merged.analytics || {}, incoming.analytics || {});
+      merged.analytics.longest = Math.max((state && state.analytics && state.analytics.longest) || 0, (incoming && incoming.analytics && incoming.analytics.longest) || 0);
+      merged.settings = Object.assign({}, merged.settings || {}, incoming.settings || {});
+
+      if(Array.isArray(merged.history) && merged.history.length > 365) merged.history.length = 365;
+
+      if(typeof migrateState === 'function') merged = migrateState(merged);
+      state = merged;
+      if(typeof commit === 'function') commit();
+      if(typeof toast === 'function') toast('Backup merged successfully');
+    }catch(err){
+      console.error('Import/merge failed', err);
+      if(typeof toast === 'function') toast('Failed to import backup');
+    }
+  }
+
+  var btnExport = document.getElementById('btnExportData');
+  var btnImport = document.getElementById('btnImportData');
+  var fileInput = document.getElementById('fileImport');
+
+  if(btnExport) btnExport.onclick = exportStateToFile;
+
+  if(btnImport && fileInput){
+    btnImport.onclick = function(){ fileInput.click(); };
+    fileInput.onchange = function(e){
+      var f = e.target.files && e.target.files[0];
+      if(!f) return;
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        try{
+          var parsed = JSON.parse(ev.target.result);
+          handleImportedObject(parsed);
+        }catch(err){
+          console.error('Invalid JSON file', err);
+          if(typeof toast === 'function') toast('Failed to parse JSON');
+        } finally {
+          fileInput.value = '';
+        }
+      };
+      reader.onerror = function(err){ console.error('File read error', err); if(typeof toast === 'function') toast('Failed to read file'); fileInput.value = ''; };
+      reader.readAsText(f);
+    };
+  }
+
+  // optional: allow drop-to-import (desktop convenience). Confirm before reading.
+  document.body.addEventListener('dragover', function(e){ e.preventDefault(); });
+  document.body.addEventListener('drop', function(e){
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(!f) return;
+    if(!confirm('Import backup from dropped file? OK to proceed. Cancel to abort.')) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        var parsed = JSON.parse(ev.target.result);
+        handleImportedObject(parsed);
+      }catch(err){
+        console.error('Invalid JSON (drop)', err);
+        if(typeof toast === 'function') toast('Invalid backup file');
+      }
+    };
+    reader.readAsText(f);
+  });
+})();
+</script>
+<!-- End Export / Import backup script -->
+
+<!-- PWA Registration Script -->
+<script>
+// PWA Registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('SW registered: ', registration);
+      })
+      .catch(registrationError => {
+        console.log('SW registration failed: ', registrationError);
+      });
+  });
+}
+
+// PWA Install Prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent the mini-infobar from appearing on mobile
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  deferredPrompt = e;
+  // Show install button (optional)
+  showInstallButton();
+});
+
+function showInstallButton() {
+  // You can add a custom install button here
+  console.log('App can be installed');
+}
+
+// Handle install button click
+window.addEventListener('appinstalled', (evt) => {
+  console.log('App was installed');
+});
+</script>
+</body>
+</html>
