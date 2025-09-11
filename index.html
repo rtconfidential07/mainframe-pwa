@@ -715,19 +715,135 @@
   // Expose a tiny helper so you can set keys at runtime from console if needed
   window.setSupabaseKeys = (url, key) => { window.SUPABASE_URL = url; window.SUPABASE_ANON_KEY = key; location.reload() }
 
+  // Debug helpers for Supabase
+  window.debugSupabase = async () => {
+    if (!supabase) {
+      console.log('❌ Supabase not initialized');
+      return;
+    }
+    
+    console.log('🔍 Debugging Supabase...');
+    
+    // Check auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('👤 Current user:', user);
+    if (authError) console.error('❌ Auth error:', authError);
+    
+    // Check if user_data table exists
+    const { data: tables, error: tableError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public')
+      .eq('table_name', 'user_data');
+    
+    console.log('📊 user_data table exists:', tables?.length > 0);
+    if (tableError) console.error('❌ Table check error:', tableError);
+    
+    // Try to query user_data directly
+    if (user) {
+      const { data: userData, error: dataError } = await supabase
+        .from('user_data')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      console.log('📦 User data query result:', { userData, dataError });
+    }
+    
+    // Check RLS policies
+    const { data: policies, error: policyError } = await supabase
+      .from('pg_policies')
+      .select('*')
+      .eq('tablename', 'user_data');
+    
+    console.log('🔒 RLS policies:', policies);
+    if (policyError) console.error('❌ Policy check error:', policyError);
+  }
+
+  // Test data save
+  window.testSaveData = async () => {
+    if (!supabase) {
+      console.log('❌ Supabase not initialized');
+      return;
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('❌ No user logged in');
+      return;
+    }
+    
+    const testData = {
+      user_id: user.id,
+      data: { test: 'hello world', timestamp: new Date().toISOString() },
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('💾 Testing data save...', testData);
+    
+    const { data, error } = await supabase
+      .from('user_data')
+      .upsert(testData);
+    
+    console.log('💾 Save result:', { data, error });
+  }
+
   // Database schema setup helper
   window.setupDatabase = async () => {
     if (!supabase) return console.error('Supabase not initialized')
     
-    // Create tables if they don't exist
-    const { error: usersError } = await supabase.rpc('create_user_data_tables')
-    if (usersError) {
-      console.log('Tables might already exist or need manual creation:', usersError.message)
+    console.log('🔧 Setting up database...');
+    
+    // Create the user_data table
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS user_data (
+        user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        PRIMARY KEY (user_id)
+      );
+      
+      ALTER TABLE user_data ENABLE ROW LEVEL SECURITY;
+      
+      DROP POLICY IF EXISTS "Users can only access their own data" ON user_data;
+      CREATE POLICY "Users can only access their own data" ON user_data
+        FOR ALL USING (auth.uid() = user_id);
+    `;
+    
+    const { data, error } = await supabase.rpc('exec_sql', { sql: createTableSQL });
+    
+    if (error) {
+      console.log('❌ Database setup error:', error);
+      console.log('📝 You may need to run this SQL manually in Supabase SQL Editor:');
+      console.log(createTableSQL);
+    } else {
+      console.log('✅ Database setup complete');
     }
   }
 
   // Make supabase available globally for the main app
   window.supabase = supabase
+
+  // Manual table creation (run this if setupDatabase fails)
+  window.createTableManually = () => {
+    console.log('📝 Copy this SQL and run it in Supabase SQL Editor:');
+    console.log(`
+-- Create user_data table
+CREATE TABLE IF NOT EXISTS user_data (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY (user_id)
+);
+
+-- Enable Row Level Security
+ALTER TABLE user_data ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for user access
+DROP POLICY IF EXISTS "Users can only access their own data" ON user_data;
+CREATE POLICY "Users can only access their own data" ON user_data
+  FOR ALL USING (auth.uid() = user_id);
+    `);
+  }
 
   // Load user data and show app (called after authentication)
   window.loadUserDataAndShowApp = async () => {
