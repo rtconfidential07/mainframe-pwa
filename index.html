@@ -704,6 +704,70 @@
 
   // Expose a tiny helper so you can set keys at runtime from console if needed
   window.setSupabaseKeys = (url, key) => { window.SUPABASE_URL = url; window.SUPABASE_ANON_KEY = key; location.reload() }
+
+  // Database schema setup helper
+  window.setupDatabase = async () => {
+    if (!supabase) return console.error('Supabase not initialized')
+    
+    // Create tables if they don't exist
+    const { error: usersError } = await supabase.rpc('create_user_data_tables')
+    if (usersError) {
+      console.log('Tables might already exist or need manual creation:', usersError.message)
+    }
+  }
+
+    // Make supabase available globally for the main app
+    window.supabase = supabase
+
+    // Migrate localStorage data to Supabase when user logs in
+    window.migrateLocalDataToSupabase = async () => {
+      if (!supabase) return;
+      
+      try {
+        const userId = await getCurrentUserId();
+        if (!userId) return;
+
+        // Check if user already has data in Supabase
+        const { data: existingData } = await supabase
+          .from('user_data')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (existingData) return; // User already has data
+
+        // Check localStorage for existing data
+        const localData = localStorage.getItem('mainframe_v1');
+        if (!localData) return;
+
+        // Migrate to Supabase
+        const parsedData = JSON.parse(localData);
+        const { error } = await supabase
+          .from('user_data')
+          .insert({
+            user_id: userId,
+            data: parsedData,
+            updated_at: new Date().toISOString()
+          });
+
+        if (!error) {
+          console.log('Successfully migrated local data to Supabase');
+          // Optionally clear localStorage after successful migration
+          // localStorage.removeItem('mainframe_v1');
+        }
+      } catch (e) {
+        console.error('Migration error:', e);
+      }
+    }
+
+    // Auto-migrate when auth state changes
+    if (supabase) {
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          await window.migrateLocalDataToSupabase();
+        }
+      });
+    }
   </script>
 
   <script>
@@ -815,16 +879,56 @@
       return s;
     }
 
-    function load(){
+    // Get current user ID
+    function getCurrentUserId() {
+      return window.supabase?.auth?.getUser()?.then(({ data }) => data?.user?.id) || null;
+    }
+
+    // Load user data from Supabase
+    async function load(){
       try{
-        const raw = JSON.parse(localStorage.getItem(storeKey));
-        return migrateState(raw) || structuredClone(defaultState);
-      }catch(e){
+        const userId = await getCurrentUserId();
+        if (!userId || !window.supabase) {
+          // Fallback to localStorage if not authenticated
+          const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+          return migrateState(raw) || structuredClone(defaultState);
+        }
+
+        // Load from Supabase
+        const { data, error } = await window.supabase
+          .from('user_data')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+          console.error('Error loading user data:', error);
+          // Fallback to localStorage
+          const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+          return migrateState(raw) || structuredClone(defaultState);
+        }
+
+        if (data && data.data) {
+          return migrateState(data.data);
+        }
+
         return structuredClone(defaultState);
+      }catch(e){
+        console.error('Load error:', e);
+        // Fallback to localStorage
+        const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+        return migrateState(raw) || structuredClone(defaultState);
       }
     }
 
-    let state = load();
+    let state = structuredClone(defaultState);
+
+    // Initialize app with async data loading
+    async function initializeApp() {
+      state = await load();
+      startupSanityCheck();
+      render();
+    }
 
     (function startupSanityCheck(){
       if(!Array.isArray(state.history)){
@@ -839,7 +943,37 @@
       }
     })();
 
-    function save(){ localStorage.setItem(storeKey, JSON.stringify(state)); }
+    // Save user data to Supabase
+    async function save(){ 
+      try {
+        const userId = await getCurrentUserId();
+        if (!userId || !window.supabase) {
+          // Fallback to localStorage if not authenticated
+          localStorage.setItem(storeKey, JSON.stringify(state));
+          return;
+        }
+
+        // Save to Supabase
+        const { error } = await window.supabase
+          .from('user_data')
+          .upsert({
+            user_id: userId,
+            data: state,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) {
+          console.error('Error saving to Supabase:', error);
+          // Fallback to localStorage
+          localStorage.setItem(storeKey, JSON.stringify(state));
+        }
+      } catch (e) {
+        console.error('Save error:', e);
+        // Fallback to localStorage
+        localStorage.setItem(storeKey, JSON.stringify(state));
+      }
+    }
+    
     function commit(){ save(); render(); } // single source for save+render
     function uid(){ return Math.random().toString(36).slice(2,9); }
 
@@ -2105,7 +2239,8 @@
 
     resizeConfettiCanvas();
 
-    render();
+    // Initialize the app
+    initializeApp();
     window.addEventListener('resize', ()=> { renderRadar(0); resizeConfettiCanvas(); });
 
     /* ===== Helpers ===== */
@@ -2282,6 +2417,4 @@ window.addEventListener('appinstalled', (evt) => {
 });
 </script>
 </body>
-
 </html>
-
