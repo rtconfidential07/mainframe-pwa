@@ -303,6 +303,16 @@
     </div>
   </div>
 
+  <!-- Loading Screen -->
+  <div id="loadingScreen" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;">
+    <div class="auth-card" style="text-align:center;">
+      <div>
+        <h3 class="auth-title">Loading Mainframe...</h3>
+        <div class="auth-sub">Please wait while we load your data.</div>
+      </div>
+    </div>
+  </div>
+
   <div class="app">
     <div class="mainframe">
       <div class="grid">
@@ -645,39 +655,48 @@
   function showApp(){
     authScreen.classList.add('hidden')
     appRoot.style.display = ''
+    document.getElementById('loadingScreen').style.display = 'none'
     btnLogout && (btnLogout.style.display = 'inline-flex')
   }
   function showAuth(){
     appRoot.style.display = 'none'
     authScreen.classList.remove('hidden')
+    document.getElementById('loadingScreen').style.display = 'none'
     btnLogout && (btnLogout.style.display = 'none')
   }
   function showLoading(){
     appRoot.style.display = 'none'
     authScreen.classList.add('hidden')
-    // Show a loading state (you can add a loading spinner here if needed)
+    document.getElementById('loadingScreen').style.display = 'flex'
   }
 
   async function refreshAuthUI(){
     try{
+      console.log('🔄 Starting auth check...')
       // Show loading state while checking auth
       showLoading()
       
       if(missingConfig || !supabase){ 
+        console.log('❌ Missing config or supabase')
         showAuth(); 
         errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; 
         return 
       }
       
+      console.log('🔍 Checking session...')
       const { data } = await supabase.auth.getSession()
+      console.log('📋 Session data:', data)
+      
       if(data && data.session){ 
+        console.log('✅ User authenticated, loading data...')
         // Load user data before showing app
         await window.loadUserDataAndShowApp()
       } else { 
+        console.log('❌ No session, showing auth screen')
         showAuth() 
       }
     }catch(e){ 
-      console.error('Auth check error:', e); 
+      console.error('❌ Auth check error:', e); 
       showAuth() 
     }
   }
@@ -864,26 +883,34 @@ CREATE POLICY "Users can only access their own data" ON user_data
   // Load user data and show app (called after authentication)
   window.loadUserDataAndShowApp = async () => {
     try {
+      console.log('📱 Loading user data and showing app...')
       // Wait a moment for auth to fully settle
       await new Promise(resolve => setTimeout(resolve, 100))
       
       // Load user data
       if (window.initializeApp) {
+        console.log('🔄 Initializing app...')
         await window.initializeApp()
+        console.log('✅ App initialized')
+      } else {
+        console.log('❌ initializeApp not available')
       }
       
       // Initialize app components that need to run after auth
       if (window.startDateWatcher) {
+        console.log('🔄 Starting date watcher...')
         window.startDateWatcher()
       }
       if (window.resizeConfettiCanvas) {
+        console.log('🔄 Resizing confetti canvas...')
         window.resizeConfettiCanvas()
       }
       
       // Show the app
+      console.log('🎉 Showing app...')
       showApp()
     } catch (e) {
-      console.error('Error loading user data:', e)
+      console.error('❌ Error loading user data:', e)
       showApp() // Show app anyway, it will fall back to default state
     }
   }
