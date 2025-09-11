@@ -1082,17 +1082,8 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
     let state = structuredClone(defaultState);
 
-    // Initialize app with async data loading
-    async function initializeApp() {
-      state = await load();
-      startupSanityCheck();
-      render();
-    }
-
-    // Make initializeApp available globally
-    window.initializeApp = initializeApp;
-
-    (function startupSanityCheck(){
+    // Sanity check function
+    function startupSanityCheck(){
       if(!Array.isArray(state.history)){
         console.warn('Sanity check: state.history not an array on startup — normalizing and saving.');
         if(state.history && typeof state.history === 'object'){
@@ -1103,7 +1094,17 @@ CREATE POLICY "Users can only access their own data" ON user_data
         }
         localStorage.setItem(storeKey, JSON.stringify(state));
       }
-    })();
+    }
+
+    // Initialize app with async data loading
+    async function initializeApp() {
+      state = await load();
+      startupSanityCheck();
+      render();
+    }
+
+    // Make initializeApp available globally
+    window.initializeApp = initializeApp;
 
     // Save user data to Supabase
     async function save(){ 
