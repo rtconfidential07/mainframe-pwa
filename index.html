@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mainframe – Goal & Progress Tracker</title>
+  <title>Mainframe – Goal & Progress Tracker (watcher-only rollover)</title>
   
   <!-- PWA Meta Tags -->
   <meta name="theme-color" content="#D4AF37">
@@ -54,7 +54,7 @@
       color:var(--text); background:var(--bg);
       -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     }
-    .app{ max-width:1700px; margin:40px auto; padding:0 16px; } /* <-- adjusted to 1700px */
+    .app{ max-width:1500px; margin:40px auto; padding:0 16px; } /* <-- adjusted to 1500px */
     .mainframe{ background:var(--panel); border-radius:var(--radius-lg); padding:18px; box-shadow:0 0 0 1px rgba(255,255,255,0.05) inset; }
 
     .grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr; grid-auto-rows:minmax(120px, auto); grid-gap:var(--gap); }
@@ -256,9 +256,53 @@
     /* confetti canvas overlay */
     #confettiCanvas { position:fixed; left:0; top:0; width:100vw; height:100vh; pointer-events:none; z-index:9999; display:none; }
 
+    /* Auth screen */
+    .hidden{ display:none !important; }
+    #authScreen{
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;
+    }
+    .auth-card{
+      width:min(420px, 94vw); background:var(--panel); border-radius:16px; padding:20px; box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset;
+      display:flex; flex-direction:column; gap:12px;
+    }
+    .auth-title{ font-size:22px; font-weight:800; margin:0 0 4px; }
+    .auth-sub{ color:var(--sub); font-size:13px; margin-bottom:6px; }
+    .auth-row{ display:flex; flex-direction:column; gap:8px; }
+    .auth-input{ width:100%; background:#0e131a; color:var(--text); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:10px; box-sizing:border-box; }
+    .auth-actions{ display:flex; flex-direction:column; gap:8px; }
+    .btn.gold{ background:linear-gradient(90deg,var(--gold),#ffe27a); color:#1a1a1a; border:none; }
+    .btn.full{ width:100%; justify-content:center; }
+    .auth-divider{ display:flex; align-items:center; gap:8px; color:var(--sub); font-size:12px; }
+    .auth-divider::before, .auth-divider::after{ content:""; flex:1; height:1px; background:rgba(255,255,255,0.08); }
+    .auth-note{ color:var(--sub); font-size:12px; }
+    .auth-error{ color:#ff6b6b; font-size:12px; }
+    .logout-btn{ margin-left:8px; }
+
   </style>
 </head>
 <body>
+  <!-- Auth Screen (hidden when logged in) -->
+  <div id="authScreen" class="hidden">
+    <div class="auth-card" role="dialog" aria-labelledby="authTitle">
+      <div>
+        <h3 id="authTitle" class="auth-title">Sign in to Mainframe</h3>
+        <div class="auth-sub">Track goals, streaks, and focus across devices.</div>
+      </div>
+      <div class="auth-row">
+        <label for="authEmail" class="muted" style="font-size:12px;">Email</label>
+        <input id="authEmail" type="email" class="auth-input" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="auth-actions">
+        <button id="btnEmailMagic" class="btn gold full">Send magic link</button>
+        <div class="auth-divider">or</div>
+        <button id="btnGoogle" class="btn full">Continue with Google</button>
+      </div>
+      <div id="authMessage" class="auth-note"></div>
+      <div id="authError" class="auth-error" aria-live="polite"></div>
+      <div class="auth-note">By continuing you agree to the Terms and Privacy Policy.</div>
+    </div>
+  </div>
+
   <div class="app">
     <div class="mainframe">
       <div class="grid">
@@ -273,6 +317,7 @@
               <button class="btn" id="btnOpenSettings" title="Settings">⚙️</button>
               <button class="btn" id="btnEditMainGoal">Edit</button>
               <button class="btn" id="btnSaveAll">Save</button>
+              <button class="btn logout-btn" id="btnLogout" title="Sign out" style="display:none;">Logout</button>
             </div>
           </div>
           <div class="progress" style="margin-top:10px;">
@@ -567,6 +612,99 @@
 
   <!-- confetti canvas -->
   <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+
+  <!-- Supabase Auth (Browser ESM) -->
+  <script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+
+  // TODO: Replace with your project values from the Supabase dashboard
+  const SUPABASE_URL = window.SUPABASE_URL || 'https://ydrteclttnipuaghdond.supabase.co'
+  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkcnRlY2x0dG5pcHVhZ2hkb25kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MjQ0MDIsImV4cCI6MjA3MzIwMDQwMn0.fGqSLTh865jzgMi5P_xCbz9svPGwOGncxvH-9ivmZSA'
+
+  const authScreen = document.getElementById('authScreen')
+  const appRoot = document.querySelector('.app')
+  const btnLogout = document.getElementById('btnLogout')
+  const btnEmailMagic = document.getElementById('btnEmailMagic')
+  const btnGoogle = document.getElementById('btnGoogle')
+  const emailInput = document.getElementById('authEmail')
+  const msgEl = document.getElementById('authMessage')
+  const errEl = document.getElementById('authError')
+
+  // Guard: if not configured, show auth screen with notice
+  const missingConfig = !SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT_ID') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_PUBLIC_ANON_KEY'
+
+  let supabase = null
+  try {
+    if(!missingConfig){
+      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    }
+  } catch (e) {
+    console.error('Supabase init failed', e)
+  }
+
+  function showApp(){
+    authScreen.classList.add('hidden')
+    appRoot.style.display = ''
+    btnLogout && (btnLogout.style.display = 'inline-flex')
+  }
+  function showAuth(){
+    appRoot.style.display = 'none'
+    authScreen.classList.remove('hidden')
+    btnLogout && (btnLogout.style.display = 'none')
+  }
+
+  async function refreshAuthUI(){
+    try{
+      if(missingConfig || !supabase){ showAuth(); errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; return }
+      const { data } = await supabase.auth.getSession()
+      if(data && data.session){ showApp() } else { showAuth() }
+    }catch(e){ console.error(e); showAuth() }
+  }
+
+  // Email magic-link sign-in
+  btnEmailMagic?.addEventListener('click', async () => {
+    errEl.textContent = ''
+    msgEl.textContent = ''
+    if(!supabase){ errEl.textContent = 'Auth not available'; return }
+    const email = (emailInput?.value || '').trim()
+    if(!email){ errEl.textContent = 'Enter your email'; return }
+    try{
+      const redirectTo = window.location.origin
+      const { error } = await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo: redirectTo } })
+      if(error) throw error
+      msgEl.textContent = 'Check your email for the sign-in link.'
+    }catch(e){ errEl.textContent = e?.message || 'Failed to send magic link' }
+  })
+
+  // Google OAuth
+  btnGoogle?.addEventListener('click', async () => {
+    errEl.textContent = ''
+    if(!supabase){ errEl.textContent = 'Auth not available'; return }
+    try{
+      const redirectTo = window.location.origin
+      const { error } = await supabase.auth.signInWithOAuth({ provider:'google', options:{ redirectTo } })
+      if(error) throw error
+    }catch(e){ errEl.textContent = e?.message || 'Failed to start Google sign-in' }
+  })
+
+  // Logout
+  btnLogout?.addEventListener('click', async () => {
+    try{ await supabase?.auth.signOut() }catch(e){ console.error(e) } finally { showAuth() }
+  })
+
+  // Listen for auth changes
+  if(supabase){
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if(session) showApp(); else showAuth()
+    })
+  }
+
+  // Initial paint
+  refreshAuthUI()
+
+  // Expose a tiny helper so you can set keys at runtime from console if needed
+  window.setSupabaseKeys = (url, key) => { window.SUPABASE_URL = url; window.SUPABASE_ANON_KEY = key; location.reload() }
+  </script>
 
   <script>
     /* =========================
@@ -2144,6 +2282,4 @@ window.addEventListener('appinstalled', (evt) => {
 });
 </script>
 </body>
-
 </html>
-
