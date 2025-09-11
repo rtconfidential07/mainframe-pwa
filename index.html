@@ -652,10 +652,23 @@
     authScreen.classList.remove('hidden')
     btnLogout && (btnLogout.style.display = 'none')
   }
+  function showLoading(){
+    appRoot.style.display = 'none'
+    authScreen.classList.add('hidden')
+    // Show a loading state (you can add a loading spinner here if needed)
+  }
 
   async function refreshAuthUI(){
     try{
-      if(missingConfig || !supabase){ showAuth(); errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; return }
+      // Show loading state while checking auth
+      showLoading()
+      
+      if(missingConfig || !supabase){ 
+        showAuth(); 
+        errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; 
+        return 
+      }
+      
       const { data } = await supabase.auth.getSession()
       if(data && data.session){ 
         // Load user data before showing app
@@ -663,7 +676,10 @@
       } else { 
         showAuth() 
       }
-    }catch(e){ console.error(e); showAuth() }
+    }catch(e){ 
+      console.error('Auth check error:', e); 
+      showAuth() 
+    }
   }
 
   // Email magic-link sign-in
@@ -709,7 +725,7 @@
     })
   }
 
-  // Initial paint
+  // Initial paint - check auth first
   refreshAuthUI()
 
   // Expose a tiny helper so you can set keys at runtime from console if needed
@@ -854,6 +870,14 @@ CREATE POLICY "Users can only access their own data" ON user_data
       // Load user data
       if (window.initializeApp) {
         await window.initializeApp()
+      }
+      
+      // Initialize app components that need to run after auth
+      if (window.startDateWatcher) {
+        window.startDateWatcher()
+      }
+      if (window.resizeConfettiCanvas) {
+        window.resizeConfettiCanvas()
       }
       
       // Show the app
@@ -2276,6 +2300,11 @@ CREATE POLICY "Users can only access their own data" ON user_data
       checkForDateChange();
     }
 
+    // Make functions available globally for auth-triggered initialization
+    window.startDateWatcher = startDateWatcher;
+    window.resizeConfettiCanvas = resizeConfettiCanvas;
+    window.renderRadar = renderRadar;
+
     window.addEventListener('storage', (ev) => {
       if(ev.key !== storeKey) return;
       try {
@@ -2398,13 +2427,14 @@ CREATE POLICY "Users can only access their own data" ON user_data
     }
     handleStartupRolloverCheck();
 
-    startDateWatcher();
-
-    resizeConfettiCanvas();
-
-    // Don't initialize app here - it will be initialized when user authenticates
-    // initializeApp() is now called from loadUserDataAndShowApp()
-    window.addEventListener('resize', ()=> { renderRadar(0); resizeConfettiCanvas(); });
+    // Don't initialize app components here - they will be initialized when user authenticates
+    // startDateWatcher() and resizeConfettiCanvas() are now called from loadUserDataAndShowApp()
+    
+    // Only set up the resize listener (this doesn't depend on auth)
+    window.addEventListener('resize', ()=> { 
+      if (window.renderRadar) renderRadar(0); 
+      if (window.resizeConfettiCanvas) resizeConfettiCanvas(); 
+    });
 
     /* ===== Helpers ===== */
     function toast(msg){ const c = $('#confetti'); if(!c) return; c.textContent = msg; c.style.display='block'; setTimeout(()=>{ c.style.display='none'; }, 1400); }
