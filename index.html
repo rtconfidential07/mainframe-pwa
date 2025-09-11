@@ -657,7 +657,12 @@
     try{
       if(missingConfig || !supabase){ showAuth(); errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; return }
       const { data } = await supabase.auth.getSession()
-      if(data && data.session){ showApp() } else { showAuth() }
+      if(data && data.session){ 
+        // Load user data before showing app
+        await window.loadUserDataAndShowApp()
+      } else { 
+        showAuth() 
+      }
     }catch(e){ console.error(e); showAuth() }
   }
 
@@ -694,8 +699,13 @@
 
   // Listen for auth changes
   if(supabase){
-    supabase.auth.onAuthStateChange((_event, session) => {
-      if(session) showApp(); else showAuth()
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if(session) {
+        // Load user data before showing app
+        await window.loadUserDataAndShowApp()
+      } else { 
+        showAuth() 
+      }
     })
   }
 
@@ -716,10 +726,29 @@
     }
   }
 
-    // Make supabase available globally for the main app
-    window.supabase = supabase
+  // Make supabase available globally for the main app
+  window.supabase = supabase
 
-    // Migrate localStorage data to Supabase when user logs in
+  // Load user data and show app (called after authentication)
+  window.loadUserDataAndShowApp = async () => {
+    try {
+      // Wait a moment for auth to fully settle
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Load user data
+      if (window.initializeApp) {
+        await window.initializeApp()
+      }
+      
+      // Show the app
+      showApp()
+    } catch (e) {
+      console.error('Error loading user data:', e)
+      showApp() // Show app anyway, it will fall back to default state
+    }
+  }
+
+  // Migrate localStorage data to Supabase when user logs in
     window.migrateLocalDataToSupabase = async () => {
       if (!supabase) return;
       
@@ -880,15 +909,25 @@
     }
 
     // Get current user ID
-    function getCurrentUserId() {
-      return window.supabase?.auth?.getUser()?.then(({ data }) => data?.user?.id) || null;
+    async function getCurrentUserId() {
+      if (!window.supabase) return null;
+      try {
+        const { data } = await window.supabase.auth.getUser();
+        return data?.user?.id || null;
+      } catch (e) {
+        console.error('Error getting user ID:', e);
+        return null;
+      }
     }
 
     // Load user data from Supabase
     async function load(){
       try{
         const userId = await getCurrentUserId();
+        console.log('Loading data for user ID:', userId);
+        
         if (!userId || !window.supabase) {
+          console.log('No user ID or supabase, falling back to localStorage');
           // Fallback to localStorage if not authenticated
           const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
           return migrateState(raw) || structuredClone(defaultState);
@@ -901,6 +940,8 @@
           .eq('user_id', userId)
           .single();
 
+        console.log('Supabase query result:', { data, error });
+
         if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
           console.error('Error loading user data:', error);
           // Fallback to localStorage
@@ -909,9 +950,11 @@
         }
 
         if (data && data.data) {
+          console.log('Loaded user data from Supabase:', data.data);
           return migrateState(data.data);
         }
 
+        console.log('No data found, using default state');
         return structuredClone(defaultState);
       }catch(e){
         console.error('Load error:', e);
@@ -929,6 +972,9 @@
       startupSanityCheck();
       render();
     }
+
+    // Make initializeApp available globally
+    window.initializeApp = initializeApp;
 
     (function startupSanityCheck(){
       if(!Array.isArray(state.history)){
@@ -2239,8 +2285,8 @@
 
     resizeConfettiCanvas();
 
-    // Initialize the app
-    initializeApp();
+    // Don't initialize app here - it will be initialized when user authenticates
+    // initializeApp() is now called from loadUserDataAndShowApp()
     window.addEventListener('resize', ()=> { renderRadar(0); resizeConfettiCanvas(); });
 
     /* ===== Helpers ===== */
