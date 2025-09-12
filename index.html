@@ -653,10 +653,31 @@
   }
 
   function showApp(){
+    console.log('🎯 showApp() called - hiding loading screen and showing app')
+    
+    // Hide auth screen
     authScreen.classList.add('hidden')
+    
+    // Hide loading screen
+    const loadingScreen = document.getElementById('loadingScreen')
+    if (loadingScreen) {
+      loadingScreen.style.display = 'none'
+      console.log('✅ Loading screen hidden')
+    } else {
+      console.log('❌ Loading screen element not found')
+    }
+    
+    // Show app
     appRoot.style.display = ''
-    document.getElementById('loadingScreen').style.display = 'none'
-    btnLogout && (btnLogout.style.display = 'inline-flex')
+    console.log('✅ App root shown')
+    
+    // Show logout button
+    if (btnLogout) {
+      btnLogout.style.display = 'inline-flex'
+      console.log('✅ Logout button shown')
+    }
+    
+    console.log('🎉 showApp() completed')
   }
   function showAuth(){
     appRoot.style.display = 'none'
@@ -665,9 +686,17 @@
     btnLogout && (btnLogout.style.display = 'none')
   }
   function showLoading(){
+    console.log('🔄 showLoading() called')
     appRoot.style.display = 'none'
     authScreen.classList.add('hidden')
-    document.getElementById('loadingScreen').style.display = 'flex'
+    
+    const loadingScreen = document.getElementById('loadingScreen')
+    if (loadingScreen) {
+      loadingScreen.style.display = 'flex'
+      console.log('✅ Loading screen shown')
+    } else {
+      console.log('❌ Loading screen element not found')
+    }
   }
 
   async function refreshAuthUI(){
@@ -909,6 +938,15 @@ CREATE POLICY "Users can only access their own data" ON user_data
       // Show the app
       console.log('🎉 Showing app...')
       showApp()
+      
+      // Fallback: Force show app after 3 seconds if still loading
+      setTimeout(() => {
+        const loadingScreen = document.getElementById('loadingScreen')
+        if (loadingScreen && loadingScreen.style.display !== 'none') {
+          console.log('⚠️ Loading screen still visible after 3s, forcing app to show...')
+          showApp()
+        }
+      }, 3000)
     } catch (e) {
       console.error('❌ Error loading user data:', e)
       showApp() // Show app anyway, it will fall back to default state
