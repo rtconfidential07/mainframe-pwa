@@ -713,7 +713,15 @@
       }
       
       console.log('🔍 Checking session...')
-      const { data } = await supabase.auth.getSession()
+      
+      // Add timeout to session check to prevent hanging
+      const sessionTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session check timeout after 5 seconds')), 5000)
+      );
+      
+      const sessionPromise = supabase.auth.getSession();
+      
+      const { data } = await Promise.race([sessionPromise, sessionTimeout]);
       console.log('📋 Session data:', data)
       
       if(data && data.session){ 
@@ -726,7 +734,14 @@
       }
     }catch(e){ 
       console.error('❌ Auth check error:', e); 
-      showAuth() 
+      // If session check fails, try to show app anyway (fallback to localStorage)
+      console.log('🔄 Session check failed, trying to show app with fallback data...')
+      try {
+        await window.loadUserDataAndShowApp()
+      } catch (e2) {
+        console.error('❌ Fallback also failed:', e2)
+        showAuth()
+      }
     }
   }
 
@@ -916,11 +931,23 @@ CREATE POLICY "Users can only access their own data" ON user_data
       // Wait a moment for auth to fully settle
       await new Promise(resolve => setTimeout(resolve, 100))
       
-      // Load user data
+      // Load user data with timeout fallback
       if (window.initializeApp) {
         console.log('🔄 Initializing app...')
-        await window.initializeApp()
-        console.log('✅ App initialized')
+        
+        // Add timeout for the entire initialization
+        const initTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Initialization timeout after 15 seconds')), 15000)
+        );
+        
+        try {
+          await Promise.race([window.initializeApp(), initTimeout]);
+          console.log('✅ App initialized')
+        } catch (e) {
+          console.error('❌ App initialization failed or timed out:', e)
+          console.log('🔄 Falling back to default state...')
+          // Continue anyway with default state
+        }
       } else {
         console.log('❌ initializeApp not available')
       }
@@ -939,14 +966,14 @@ CREATE POLICY "Users can only access their own data" ON user_data
       console.log('🎉 Showing app...')
       showApp()
       
-      // Fallback: Force show app after 3 seconds if still loading
+      // Fallback: Force show app after 5 seconds if still loading
       setTimeout(() => {
         const loadingScreen = document.getElementById('loadingScreen')
         if (loadingScreen && loadingScreen.style.display !== 'none') {
-          console.log('⚠️ Loading screen still visible after 3s, forcing app to show...')
+          console.log('⚠️ Loading screen still visible after 5s, forcing app to show...')
           showApp()
         }
-      }, 3000)
+      }, 5000)
     } catch (e) {
       console.error('❌ Error loading user data:', e)
       showApp() // Show app anyway, it will fall back to default state
@@ -1113,7 +1140,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
       return s;
     }
 
-    // Get current user ID
+    // Get current user ID with timeout
     async function getCurrentUserId() {
       console.log('🔄 getCurrentUserId() starting...')
       if (!window.supabase) {
@@ -1122,7 +1149,15 @@ CREATE POLICY "Users can only access their own data" ON user_data
       }
       try {
         console.log('🔄 Calling supabase.auth.getUser()...')
-        const { data } = await window.supabase.auth.getUser();
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout after 10 seconds')), 10000)
+        );
+        
+        const authPromise = window.supabase.auth.getUser();
+        
+        const { data } = await Promise.race([authPromise, timeoutPromise]);
         console.log('✅ Got user data:', data?.user?.id ? 'User ID found' : 'No user ID')
         return data?.user?.id || null;
       } catch (e) {
