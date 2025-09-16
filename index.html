@@ -1115,12 +1115,18 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
     // Get current user ID
     async function getCurrentUserId() {
-      if (!window.supabase) return null;
+      console.log('🔄 getCurrentUserId() starting...')
+      if (!window.supabase) {
+        console.log('❌ No supabase client')
+        return null;
+      }
       try {
+        console.log('🔄 Calling supabase.auth.getUser()...')
         const { data } = await window.supabase.auth.getUser();
+        console.log('✅ Got user data:', data?.user?.id ? 'User ID found' : 'No user ID')
         return data?.user?.id || null;
       } catch (e) {
-        console.error('Error getting user ID:', e);
+        console.error('❌ Error getting user ID:', e);
         return null;
       }
     }
@@ -1128,6 +1134,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
     // Load user data from Supabase
     async function load(){
       try{
+        console.log('🔄 load() starting...')
         const userId = await getCurrentUserId();
         console.log('Loading data for user ID:', userId);
         
@@ -1138,6 +1145,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
           return migrateState(raw) || structuredClone(defaultState);
         }
 
+        console.log('🔄 Querying Supabase...')
         // Load from Supabase
         const { data, error } = await window.supabase
           .from('user_data')
@@ -1187,9 +1195,19 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
     // Initialize app with async data loading
     async function initializeApp() {
-      state = await load();
-      startupSanityCheck();
-      render();
+      try {
+        console.log('🔄 initializeApp() starting...')
+        console.log('🔄 Loading data...')
+        state = await load();
+        console.log('✅ Data loaded, running sanity check...')
+        startupSanityCheck();
+        console.log('✅ Sanity check complete, rendering...')
+        render();
+        console.log('✅ initializeApp() completed successfully')
+      } catch (e) {
+        console.error('❌ initializeApp() failed:', e)
+        throw e
+      }
     }
 
     // Make initializeApp available globally
