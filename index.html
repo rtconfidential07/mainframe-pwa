@@ -726,8 +726,8 @@
       
       if(data && data.session){ 
         console.log('✅ User authenticated, loading data...')
-        // Load user data before showing app
-        await window.loadUserDataAndShowApp()
+        // Load user data before showing app, pass session to avoid repeated auth calls
+        await window.loadUserDataAndShowApp(data.session)
       } else { 
         console.log('❌ No session, showing auth screen')
         showAuth() 
@@ -780,8 +780,8 @@
   if(supabase){
     supabase.auth.onAuthStateChange(async (event, session) => {
       if(session) {
-        // Load user data before showing app
-        await window.loadUserDataAndShowApp()
+        // Load user data before showing app, pass session to avoid repeated auth calls
+        await window.loadUserDataAndShowApp(session)
       } else { 
         showAuth() 
       }
@@ -924,10 +924,20 @@ CREATE POLICY "Users can only access their own data" ON user_data
     `);
   }
 
+  // Store the current session globally to avoid repeated auth calls
+  let currentSession = null;
+
   // Load user data and show app (called after authentication)
-  window.loadUserDataAndShowApp = async () => {
+  window.loadUserDataAndShowApp = async (session = null) => {
     try {
       console.log('📱 Loading user data and showing app...')
+      
+      // Store session for later use
+      if (session) {
+        currentSession = session;
+        console.log('✅ Session stored for later use')
+      }
+      
       // Wait a moment for auth to fully settle
       await new Promise(resolve => setTimeout(resolve, 100))
       
@@ -1143,6 +1153,13 @@ CREATE POLICY "Users can only access their own data" ON user_data
     // Get current user ID with timeout
     async function getCurrentUserId() {
       console.log('🔄 getCurrentUserId() starting...')
+      
+      // First try to use stored session to avoid auth calls
+      if (currentSession && currentSession.user) {
+        console.log('✅ Using stored session, user ID:', currentSession.user.id)
+        return currentSession.user.id;
+      }
+      
       if (!window.supabase) {
         console.log('❌ No supabase client')
         return null;
