@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Mainframe">
+  <meta name="description" content="A powerful goal and progress tracking app with analytics, streaks, and focus mode">
   
   <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
@@ -19,264 +20,877 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- External Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    :root{
-      --bg:#0f1720;
-      --panel:#161B22;
-      --text:#EDEDED;
-      --sub:#A3A3A3;
-      --gold:#D4AF37;
-      --c-business:#3B82F6;
-      --c-health:#22C55E;
-      --c-growth:#8B5CF6;
-      --c-family:#FF8A65;
-      --c-network:#FFD166;
-      --radius:16px;
-      --radius-lg:22px;
-      --gap:14px;
-      --panel-pad:16px;
-
+    /* =========================
+       CSS CUSTOM PROPERTIES
+    ==========================*/
+    :root {
+      /* Color Palette */
+      --color-bg: #0f1720;
+      --color-panel: #161B22;
+      --color-text: #EDEDED;
+      --color-text-muted: #A3A3A3;
+      --color-accent: #D4AF37;
+      
+      /* Category Colors */
+      --color-business: #3B82F6;
+      --color-health: #22C55E;
+      --color-growth: #8B5CF6;
+      --color-family: #FF8A65;
+      --color-network: #FFD166;
+      
+      /* Spacing & Layout */
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+      --spacing-xl: 20px;
+      --spacing-2xl: 24px;
+      
+      /* Border Radius */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 22px;
+      
+      /* Layout */
+      --gap: 14px;
+      --panel-padding: 16px;
+      --max-width: 1700px;
+      
+      /* Analytics Modal */
       --analytics-modal-max-width: 1100px;
-      --analytics-card-h: 260px;
-      --analytics-card-h-sm: 160px;
-
+      --analytics-card-height: 260px;
+      --analytics-card-height-sm: 160px;
       --donut-size: 160px;
       --donut-size-sm: 120px;
+      
+      /* Transitions */
+      --transition-fast: 0.2s ease;
+      --transition-normal: 0.3s ease;
+      --transition-slow: 0.5s ease;
     }
 
-    html,body{height:100%;}
-    body{
-      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-      color:var(--text); background:var(--bg);
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    /* =========================
+       BASE STYLES
+    ==========================*/
+    html, body {
+      height: 100%;
     }
-    .app{ max-width:1700px; margin:40px auto; padding:0 16px; } /* <-- adjusted to 1700px */
-    .mainframe{ background:var(--panel); border-radius:var(--radius-lg); padding:18px; box-shadow:0 0 0 1px rgba(255,255,255,0.05) inset; }
+    
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--color-text);
+      background: var(--color-bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
+    }
+    
+    .app {
+      max-width: var(--max-width);
+      margin: 40px auto;
+      padding: 0 var(--spacing-lg);
+    }
+    
+    .mainframe {
+      background: var(--color-panel);
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    }
 
-    .grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr; grid-auto-rows:minmax(120px, auto); grid-gap:var(--gap); }
-    .section{ background:rgba(255,255,255,0.02); border-radius:var(--radius); padding:var(--panel-pad); box-sizing:border-box; }
-    .section h3{ margin:0 0 8px; font-size:18px; font-weight:700; }
-    .muted{ color:var(--sub); }
+    /* =========================
+       LAYOUT & GRID
+    ==========================*/
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-auto-rows: minmax(120px, auto);
+      gap: var(--gap);
+    }
+    
+    .section {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: var(--radius-lg);
+      padding: var(--panel-padding);
+      box-sizing: border-box;
+    }
+    
+    .section h1,
+    .section h2,
+    .section h3 {
+      margin: 0 0 var(--spacing-sm);
+      font-size: 18px;
+      font-weight: 700;
+    }
+    
+    .muted {
+      color: var(--color-text-muted);
+    }
 
-    .main-goal{ grid-column:1/5; }
-    .goals{ grid-column:1/2; grid-row:2/4; }
-    .todo{ grid-column:2/3; grid-row:2/3; }
-    .daily{ grid-column:3/4; grid-row:2/3; }
-    .analytics{ grid-column:4/5; grid-row:2/4; display:flex; flex-direction:column; gap:var(--gap); }
-    .archive-bar{ grid-column:2/4; grid-row:3/4; align-self:end; }
+    /* =========================
+       GRID POSITIONING
+    ==========================*/
+    .main-goal {
+      grid-column: 1 / 5;
+    }
+    
+    .goals {
+      grid-column: 1 / 2;
+      grid-row: 2 / 4;
+    }
+    
+    .todo {
+      grid-column: 2 / 3;
+      grid-row: 2 / 3;
+    }
+    
+    .daily {
+      grid-column: 3 / 4;
+      grid-row: 2 / 3;
+    }
+    
+    .analytics {
+      grid-column: 4 / 5;
+      grid-row: 2 / 4;
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+    
+    .archive-bar {
+      grid-column: 2 / 4;
+      grid-row: 3 / 4;
+      align-self: end;
+    }
 
-    .main-goal-title{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .progress{ height:10px; background:#0e131a; border-radius:999px; overflow:hidden; box-shadow:0 0 0 1px rgba(255,255,255,0.04) inset; }
-    .progress>span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--gold),#ffe27a); box-shadow:0 0 12px rgba(255,217,90,0.5); transition:width .3s ease; }
+    /* =========================
+       MAIN GOAL COMPONENT
+    ==========================*/
+    .main-goal-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--spacing-md);
+    }
+    
+    .progress {
+      height: 10px;
+      background: #0e131a;
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    }
+    
+    .progress > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--color-accent), #ffe27a);
+      box-shadow: 0 0 12px rgba(255, 217, 90, 0.5);
+      transition: width var(--transition-normal);
+    }
 
-    .row{ display:flex; gap:8px; align-items:center; }
-    .btn{ background:transparent; color:var(--gold); border:1px solid rgba(255,255,255,0.1); padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; }
-    .btn:hover{ border-color:rgba(255,255,255,0.2); }
-    .btn.ghost{ color:var(--text); }
+    /* =========================
+       BUTTONS & FORMS
+    ==========================*/
+    .row {
+      display: flex;
+      gap: var(--spacing-sm);
+      align-items: center;
+    }
+    
+    .btn {
+      background: transparent;
+      color: var(--color-accent);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: var(--spacing-sm) 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: border-color var(--transition-fast);
+    }
+    
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn.ghost {
+      color: var(--color-text);
+    }
 
-    .list{ display:flex; flex-direction:column; gap:10px; }
-    .item{ background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); padding:10px; border-radius:12px; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; box-sizing:border-box; }
-    .item .title{ font-size:14px; }
-    .drag{ cursor:grab; opacity:0.9; }
-    .pill{ font-size:12px; color:var(--sub); }
+    /* =========================
+       LISTS & ITEMS
+    ==========================*/
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px;
+      border-radius: var(--radius-md);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      box-sizing: border-box;
+      transition: all var(--transition-fast);
+    }
+    
+    .item .title {
+      font-size: 14px;
+    }
+    
+    .drag {
+      cursor: grab;
+      opacity: 0.9;
+    }
+    
+    .pill {
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
 
-    .item input[type="checkbox"]{ width:18px; height:18px; margin:0; accent-color: var(--gold); cursor: pointer; }
-    .item.completed { opacity: 0.6; }
-    .item.completed .title { text-decoration: line-through; color: rgba(255,255,255,0.65); }
+    .item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--color-accent);
+      cursor: pointer;
+    }
+    
+    .item.completed {
+      opacity: 0.6;
+    }
+    
+    .item.completed .title {
+      text-decoration: line-through;
+      color: rgba(255, 255, 255, 0.65);
+    }
 
-    .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
-    .dot.business{ background:var(--c-business); }
-    .dot.health{ background:var(--c-health); }
-    .dot.growth{ background:var(--c-growth); }
-    .dot.family{ background:var(--c-family); }
-    .dot.network{ background:var(--c-network); }
+    /* =========================
+       CATEGORY DOTS
+    ==========================*/
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    
+    .dot.business {
+      background: var(--color-business);
+    }
+    
+    .dot.health {
+      background: var(--color-health);
+    }
+    
+    .dot.growth {
+      background: var(--color-growth);
+    }
+    
+    .dot.family {
+      background: var(--color-family);
+    }
+    
+    .dot.network {
+      background: var(--color-network);
+    }
 
-    .actions{ display:flex; gap:6px; opacity:0.7; }
-    .icon-btn{ background:transparent; border:none; color:var(--sub); cursor:pointer; font-size:14px; }
-    .item:hover .actions{ opacity:1; }
+    /* =========================
+       ACTIONS & INTERACTIONS
+    ==========================*/
+    .actions {
+      display: flex;
+      gap: 6px;
+      opacity: 0.7;
+      transition: opacity var(--transition-fast);
+    }
+    
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .item:hover .actions {
+      opacity: 1;
+    }
 
-    .item.selected{ box-shadow: 0 6px 18px rgba(212,175,55,0.06); border-color: rgba(212,175,55,0.14); }
+    .item.selected {
+      box-shadow: 0 6px 18px rgba(212, 175, 55, 0.06);
+      border-color: rgba(212, 175, 55, 0.14);
+    }
 
-    .archive{ background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.12); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; }
+    /* =========================
+       ARCHIVE COMPONENT
+    ==========================*/
+    .archive {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-    .card{ background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); padding:12px; border-radius:12px; box-sizing:border-box; display:flex; flex-direction:column; gap:8px; }
-    .card h4{ margin:0; font-size:14px; color:var(--sub); }
-    .chart-wrap{ flex:1 1 auto; min-height:0; height:100%; }
-    .chart-wrap canvas{ width:100% !important; height:100% !important; display:block; }
+    /* =========================
+       CARD COMPONENTS
+    ==========================*/
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: var(--spacing-md);
+      border-radius: var(--radius-md);
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+    
+    .card h4 {
+      margin: 0;
+      font-size: 14px;
+      color: var(--color-text-muted);
+    }
+    
+    .chart-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+    }
+    
+    .chart-wrap canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
 
-    .streakbar{ height:8px; background:#0e131a; border-radius:999px; overflow:hidden; }
-    .streakbar>span{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--gold),#ffe27a); transition:width .36s ease; }
+    .streakbar {
+      height: 8px;
+      background: #0e131a;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    
+    .streakbar > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--color-accent), #ffe27a);
+      transition: width 0.36s ease;
+    }
 
-    /* ---------- Daily Streak card styling (centered & milestone pills) ---------- */
+    /* =========================
+       DAILY STREAK CARD
+    ==========================*/
     .card.streak {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      gap:10px;
-      padding:16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 10px;
+      padding: var(--spacing-lg);
       min-height: 220px;
       box-sizing: border-box;
     }
-    .streak-big{
-      font-size:48px;
-      font-weight:900;
-      line-height:1;
-      letter-spacing:0.5px;
-      margin:0;
+    .streak-big {
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.5px;
+      margin: 0;
     }
-    .streak-emojis{
-      font-size:40px;
-      opacity:0.95;
+    
+    .streak-emojis {
+      font-size: 40px;
+      opacity: 0.95;
     }
-    .milestones{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:center;
-      align-items:center;
-      margin-top:6px;
+    .milestones {
+      display: flex;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      margin-top: 6px;
     }
-    .milestone{
-      padding:6px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,0.02);
-      color:var(--text);
-      font-size:13px;
-      border:1px solid rgba(255,255,255,0.04);
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      transition:transform .24s ease, box-shadow .24s ease, opacity .24s ease;
-      cursor:default;
+    
+    .milestone {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--color-text);
+      font-size: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      display: inline-flex;
+      gap: var(--spacing-sm);
+      align-items: center;
+      transition: transform 0.24s ease, box-shadow 0.24s ease, opacity 0.24s ease;
+      cursor: default;
     }
-    .milestone.locked{ opacity:0.45; transform:scale(1); }
-    .milestone.unlocked{
-      opacity:1;
-      box-shadow:0 6px 24px rgba(212,175,55,0.12);
-      border-color: rgba(212,175,55,0.6);
-      background: linear-gradient(180deg, rgba(212,175,55,0.04), rgba(212,175,55,0.02));
+    .milestone.locked {
+      opacity: 0.45;
+      transform: scale(1);
     }
-    .milestone.unlocking{
-      animation: milestoneUnlock 800ms cubic-bezier(.2,.9,.3,1);
+    
+    .milestone.unlocked {
+      opacity: 1;
+      box-shadow: 0 6px 24px rgba(212, 175, 55, 0.12);
+      border-color: rgba(212, 175, 55, 0.6);
+      background: linear-gradient(180deg, rgba(212, 175, 55, 0.04), rgba(212, 175, 55, 0.02));
     }
-    @keyframes milestoneUnlock{
-      0%{ transform:scale(.6); filter:brightness(.8); opacity:0; }
-      60%{ transform:scale(1.08); opacity:1; filter:brightness(1.1); }
-      100%{ transform:scale(1); filter:none; opacity:1; }
+    
+    .milestone.unlocking {
+      animation: milestoneUnlock 800ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    
+    @keyframes milestoneUnlock {
+      0% {
+        transform: scale(0.6);
+        filter: brightness(0.8);
+        opacity: 0;
+      }
+      60% {
+        transform: scale(1.08);
+        opacity: 1;
+        filter: brightness(1.1);
+      }
+      100% {
+        transform: scale(1);
+        filter: none;
+        opacity: 1;
+      }
     }
 
-    /* ---------- Pomodoro layout (kept) ---------- */
+    /* =========================
+       POMODORO TIMER
+    ==========================*/
     .card.timer {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:18px;
-      gap:12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 18px;
+      gap: var(--spacing-md);
       min-height: 180px;
-      box-sizing:border-box;
+      box-sizing: border-box;
     }
     .card.timer .time {
-      font-size:44px;
-      font-weight:800;
-      letter-spacing:1px;
-      line-height:1;
-      margin:0;
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      line-height: 1;
+      margin: 0;
     }
+    
     .card.timer .presets {
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:center;
-      align-items:center;
-      margin-top:4px;
+      display: flex;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      margin-top: 4px;
     }
+    
     .card.timer .pomo-controls {
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      margin-top:6px;
+      display: flex;
+      gap: var(--spacing-sm);
+      justify-content: center;
+      margin-top: 6px;
     }
 
-    dialog{ border:none; border-radius:16px; background:var(--panel); color:var(--text); padding:18px; width:min(520px, 92vw); box-sizing:border-box; }
-    dialog::backdrop{ background:rgba(0,0,0,0.6); }
-    .modal-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    label{ font-size:12px; color:var(--sub); }
-    input[type="text"], select, input[type="number"], input[type="color"]{ width:100%; background:#0e131a; color:var(--text); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:8px; box-sizing:border-box; }
-    .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
-
-    .hide-completed{ margin-left:12px; display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--sub); }
-    .hide-completed input{ width:16px; height:16px; accent-color:var(--gold); }
-
-    .confetti{ position:fixed; top:14px; right:14px; background:#1E293B; color:#fff; padding:10px 12px; border-radius:12px; display:none; z-index:9999; }
-
-    /* analytics modal grid */
-    #analyticsModal { width: min(var(--analytics-modal-max-width), 96vw); max-height: 86vh; overflow:auto; padding:20px; box-sizing:border-box; }
-    .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: var(--analytics-card-h) var(--analytics-card-h); grid-template-areas: "donut streak" "bar line"; gap:16px; align-items:start; }
-    .card--donut  { grid-area: donut; }
-    .card--streak { grid-area: streak; }
-    .card--bar    { grid-area: bar; }
-    .card--line   { grid-area: line; }
-    .analytics-grid .card .chart-wrap { height: calc(100% - 28px); }
-    .card--donut .chart-wrap { display:flex; align-items:center; justify-content:center; padding:6px; box-sizing:border-box; }
-    .card--donut .chart-wrap canvas { width: auto !important; height: auto !important; max-width: var(--donut-size) !important; max-height: var(--donut-size) !important; display:block; }
-
-    canvas { display:block; width:100% !important; height:100% !important; }
-    @media (max-width: 1020px){
-      .grid{ grid-template-columns:1fr; }
-      .main-goal{ grid-column:1/2; }
-      .goals,.todo,.daily,.analytics,.archive-bar{ grid-column:1/2; grid-row:auto; }
-      .archive-bar{ order:5; }
-
-      .analytics-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, var(--analytics-card-h-sm)); grid-template-areas: "donut" "streak" "bar" "line"; }
-      .card--donut .chart-wrap canvas { max-width: var(--donut-size-sm) !important; max-height: var(--donut-size-sm) !important; }
-      .card.timer { min-height: 140px; }
-      .card.timer .time { font-size:34px; }
-      .streak-big { font-size:36px; }
+    /* =========================
+       MODALS & DIALOGS
+    ==========================*/
+    dialog {
+      border: none;
+      border-radius: var(--radius-lg);
+      background: var(--color-panel);
+      color: var(--color-text);
+      padding: 18px;
+      width: min(520px, 92vw);
+      box-sizing: border-box;
+    }
+    
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.6);
+    }
+    
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-md);
+    }
+    
+    label {
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+    input[type="text"], 
+    select, 
+    input[type="number"], 
+    input[type="color"] {
+      width: 100%;
+      background: #0e131a;
+      color: var(--color-text);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: var(--spacing-sm);
+      box-sizing: border-box;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--spacing-sm);
+      margin-top: 10px;
     }
 
-    /* Focus overlay styling (fullscreen black) */
-    dialog#focusModal { width:100vw; height:100vh; max-width:100vw; max-height:100vh; border-radius:0; padding:0; background:transparent; }
-    dialog#focusModal::backdrop{ background: rgba(0,0,0,0.95); }
+    .hide-completed {
+      margin-left: var(--spacing-md);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      font-size: 13px;
+      color: var(--color-text-muted);
+    }
+    
+    .hide-completed input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--color-accent);
+    }
+
+    /* =========================
+       NOTIFICATIONS & FEEDBACK
+    ==========================*/
+    .confetti {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      background: #1E293B;
+      color: #fff;
+      padding: 10px var(--spacing-md);
+      border-radius: var(--radius-md);
+      display: none;
+      z-index: 9999;
+    }
+
+    /* =========================
+       ANALYTICS MODAL
+    ==========================*/
+    #analyticsModal {
+      width: min(var(--analytics-modal-max-width), 96vw);
+      max-height: 86vh;
+      overflow: auto;
+      padding: var(--spacing-xl);
+      box-sizing: border-box;
+    }
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: var(--analytics-card-height) var(--analytics-card-height);
+      grid-template-areas: "donut streak" "bar line";
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+    
+    .card--donut {
+      grid-area: donut;
+    }
+    
+    .card--streak {
+      grid-area: streak;
+    }
+    
+    .card--bar {
+      grid-area: bar;
+    }
+    
+    .card--line {
+      grid-area: line;
+    }
+    
+    .analytics-grid .card .chart-wrap {
+      height: calc(100% - 28px);
+    }
+    
+    .card--donut .chart-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+    
+    .card--donut .chart-wrap canvas {
+      width: auto !important;
+      height: auto !important;
+      max-width: var(--donut-size) !important;
+      max-height: var(--donut-size) !important;
+      display: block;
+    }
+
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* =========================
+       RESPONSIVE DESIGN
+    ==========================*/
+    @media (max-width: 1020px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .main-goal {
+        grid-column: 1 / 2;
+      }
+      
+      .goals, .todo, .daily, .analytics, .archive-bar {
+        grid-column: 1 / 2;
+        grid-row: auto;
+      }
+      
+      .archive-bar {
+        order: 5;
+      }
+
+      .analytics-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, var(--analytics-card-height-sm));
+        grid-template-areas: "donut" "streak" "bar" "line";
+      }
+      
+      .card--donut .chart-wrap canvas {
+        max-width: var(--donut-size-sm) !important;
+        max-height: var(--donut-size-sm) !important;
+      }
+      
+      .card.timer {
+        min-height: 140px;
+      }
+      
+      .card.timer .time {
+        font-size: 34px;
+      }
+      
+      .streak-big {
+        font-size: 36px;
+      }
+    }
+
+    /* =========================
+       FOCUS MODAL
+    ==========================*/
+    dialog#focusModal {
+      width: 100vw;
+      height: 100vh;
+      max-width: 100vw;
+      max-height: 100vh;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
+    }
+    
+    dialog#focusModal::backdrop {
+      background: rgba(0, 0, 0, 0.95);
+    }
+    
     #focusContent {
-      width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:#fff;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #fff;
     }
-    #focusBox { background:transparent; padding:28px; display:flex; flex-direction:column; align-items:center; gap:14px; }
-    #focusBox .focus-time { font-size:84px; font-weight:900; letter-spacing:1px; }
-    #focusBox .focus-controls { display:flex; gap:10px; margin-top:4px; }
-    #focusExit { position:fixed; top:18px; right:18px; background:transparent; border:1px solid rgba(255,255,255,0.08); color:#fff; padding:10px 12px; border-radius:10px; cursor:pointer; }
+    
+    #focusBox {
+      background: transparent;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    
+    #focusBox .focus-time {
+      font-size: 84px;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+    
+    #focusBox .focus-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    
+    #focusExit {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #fff;
+      padding: 10px var(--spacing-md);
+      border-radius: 10px;
+      cursor: pointer;
+    }
 
-    /* confetti canvas overlay */
-    #confettiCanvas { position:fixed; left:0; top:0; width:100vw; height:100vh; pointer-events:none; z-index:9999; display:none; }
+    /* =========================
+       CONFETTI CANVAS
+    ==========================*/
+    #confettiCanvas {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
 
-    /* Auth screen */
-    .hidden{ display:none !important; }
-    #authScreen{
-      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;
+    /* =========================
+       AUTH SCREEN
+    ==========================*/
+    .hidden {
+      display: none !important;
     }
-    .auth-card{
-      width:min(420px, 94vw); background:var(--panel); border-radius:16px; padding:20px; box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset;
-      display:flex; flex-direction:column; gap:12px;
+    
+    #authScreen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-2xl);
+      box-sizing: border-box;
     }
-    .auth-title{ font-size:22px; font-weight:800; margin:0 0 4px; }
-    .auth-sub{ color:var(--sub); font-size:13px; margin-bottom:6px; }
-    .auth-row{ display:flex; flex-direction:column; gap:8px; }
-    .auth-input{ width:100%; background:#0e131a; color:var(--text); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:10px; box-sizing:border-box; }
-    .auth-actions{ display:flex; flex-direction:column; gap:8px; }
-    .btn.gold{ background:linear-gradient(90deg,var(--gold),#ffe27a); color:#1a1a1a; border:none; }
-    .btn.full{ width:100%; justify-content:center; }
-    .auth-divider{ display:flex; align-items:center; gap:8px; color:var(--sub); font-size:12px; }
-    .auth-divider::before, .auth-divider::after{ content:""; flex:1; height:1px; background:rgba(255,255,255,0.08); }
-    .auth-note{ color:var(--sub); font-size:12px; }
-    .auth-error{ color:#ff6b6b; font-size:12px; }
-    .logout-btn{ margin-left:8px; }
+    
+    .auth-card {
+      width: min(420px, 94vw);
+      background: var(--color-panel);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-xl);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+    
+    .auth-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin: 0 0 4px;
+    }
+    
+    .auth-sub {
+      color: var(--color-text-muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    
+    .auth-row {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+    
+    .auth-input {
+      width: 100%;
+      background: #0e131a;
+      color: var(--color-text);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    
+    .auth-actions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+    
+    .btn.gold {
+      background: linear-gradient(90deg, var(--color-accent), #ffe27a);
+      color: #1a1a1a;
+      border: none;
+    }
+    
+    .btn.full {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      color: var(--color-text-muted);
+      font-size: 12px;
+    }
+    
+    .auth-divider::before,
+    .auth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .auth-note {
+      color: var(--color-text-muted);
+      font-size: 12px;
+    }
+    
+    .auth-error {
+      color: #ff6b6b;
+      font-size: 12px;
+    }
+    
+    .logout-btn {
+      margin-left: var(--spacing-sm);
+    }
+    
+    /* =========================
+       ACCESSIBILITY
+    ==========================*/
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
 
   </style>
 </head>
@@ -313,69 +927,70 @@
     </div>
   </div>
 
-  <div class="app">
+  <main class="app" role="main">
     <div class="mainframe">
       <div class="grid">
         <!-- MAIN GOAL -->
-        <section class="section main-goal">
-          <div class="main-goal-title">
+        <section class="section main-goal" aria-labelledby="mainGoalTitle">
+          <header class="main-goal-title">
             <div>
-              <h3 id="mainGoalTitle">Main Goal</h3>
-              <div class="muted" id="mainGoalUnitLabel"></div>
+              <h1 id="mainGoalTitle">Main Goal</h1>
+              <div class="muted" id="mainGoalUnitLabel" aria-label="Goal unit"></div>
             </div>
-            <div class="row">
-              <button class="btn" id="btnOpenSettings" title="Settings">⚙️</button>
-              <button class="btn" id="btnEditMainGoal">Edit</button>
-              <button class="btn" id="btnSaveAll">Save</button>
-              <button class="btn logout-btn" id="btnLogout" title="Sign out" style="display:none;">Logout</button>
-            </div>
-          </div>
-          <div class="progress" style="margin-top:10px;">
+            <nav class="row" role="toolbar" aria-label="Main goal actions">
+              <button class="btn" id="btnOpenSettings" title="Settings" aria-label="Open settings">⚙️</button>
+              <button class="btn" id="btnEditMainGoal" aria-label="Edit main goal">Edit</button>
+              <button class="btn" id="btnSaveAll" aria-label="Save all changes">Save</button>
+              <button class="btn logout-btn" id="btnLogout" title="Sign out" aria-label="Sign out" style="display:none;">Logout</button>
+            </nav>
+          </header>
+          <div class="progress" style="margin-top:10px;" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Main goal progress">
             <span id="mainGoalProgress"></span>
           </div>
         </section>
 
         <!-- GOALS LIST -->
-        <section class="section goals">
-          <div class="row" style="justify-content:space-between;">
-            <h3>Smaller Goals</h3>
-            <button class="btn" id="btnAddGoal">+ Goal</button>
-          </div>
-          <div class="list" id="goalsList"></div>
+        <section class="section goals" aria-labelledby="goalsTitle">
+          <header class="row" style="justify-content:space-between;">
+            <h2 id="goalsTitle">Smaller Goals</h2>
+            <button class="btn" id="btnAddGoal" aria-label="Add new goal">+ Goal</button>
+          </header>
+          <div class="list" id="goalsList" role="list" aria-label="Goals list"></div>
         </section>
 
         <!-- MAIN TODO LIST -->
-        <section class="section todo" ondragover="event.preventDefault()" data-drop="todo">
-          <div class="row" style="justify-content:space-between;">
-            <h3>Main To-Do</h3>
-            <button class="btn" id="btnAddTask">+ Task</button>
-          </div>
-          <div class="list" id="todoList"></div>
+        <section class="section todo" ondragover="event.preventDefault()" data-drop="todo" aria-labelledby="todoTitle">
+          <header class="row" style="justify-content:space-between;">
+            <h2 id="todoTitle">Main To-Do</h2>
+            <button class="btn" id="btnAddTask" aria-label="Add new task">+ Task</button>
+          </header>
+          <div class="list" id="todoList" role="list" aria-label="Main tasks list"></div>
         </section>
 
         <!-- DAILY TASKS -->
-        <section class="section daily" ondragover="event.preventDefault()" data-drop="daily">
-          <div class="row" style="justify-content:space-between;">
-            <h3>Daily Tasks</h3>
-            <button class="btn" id="btnAddDaily">+ Daily</button>
-          </div>
-          <div class="list" id="dailyList"></div>
+        <section class="section daily" ondragover="event.preventDefault()" data-drop="daily" aria-labelledby="dailyTitle">
+          <header class="row" style="justify-content:space-between;">
+            <h2 id="dailyTitle">Daily Tasks</h2>
+            <button class="btn" id="btnAddDaily" aria-label="Add new daily task">+ Daily</button>
+          </header>
+          <div class="list" id="dailyList" role="list" aria-label="Daily tasks list"></div>
         </section>
 
         <!-- ARCHIVE BAR -->
-        <section class="section archive-bar">
+        <section class="section archive-bar" aria-labelledby="archiveTitle">
           <div class="archive">
-            <span class="muted">Archived tasks live here</span>
-            <button class="btn" id="btnOpenArchive">Open Archive</button>
+            <span class="muted" id="archiveTitle">Archived tasks live here</span>
+            <button class="btn" id="btnOpenArchive" aria-label="Open archived tasks">Open Archive</button>
           </div>
         </section>
 
         <!-- ANALYTICS COLUMN -->
-        <aside class="analytics">
+        <aside class="analytics" role="complementary" aria-label="Analytics and tools">
           <!-- Daily Streak (centered, big number, emojis, milestones) -->
-          <div class="card streak" id="streakCard">
-            <div class="streak-emojis" id="streakEmojis">🔥</div>
-            <div class="streak-big" id="streakBig">0</div>
+          <div class="card streak" id="streakCard" role="region" aria-labelledby="streakTitle">
+            <h3 id="streakTitle" class="sr-only">Daily Streak</h3>
+            <div class="streak-emojis" id="streakEmojis" aria-hidden="true">🔥</div>
+            <div class="streak-big" id="streakBig" aria-label="Current streak: 0 days">0</div>
             <div style="font-size:13px;color:var(--sub)">Days in a row</div>
 
             <!-- milestones pills -->
@@ -384,40 +999,42 @@
             </div>
 
             <div style="width:100%; margin-top:8px;">
-              <div class="streakbar" style="height:8px;"><span id="streakBar" style="width:0%"></span></div>
+              <div class="streakbar" style="height:8px;" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to next milestone">
+                <span id="streakBar" style="width:0%"></span>
+              </div>
             </div>
 
             <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <div class="muted" style="font-size:13px">Longest: <b id="longestStreak">0</b></div>
               <div style="display:flex; gap:8px; align-items:center;">
-                <button class="btn" id="btnEnterFocus" title="Enter Focus Mode">Enter Focus Mode</button>
+                <button class="btn" id="btnEnterFocus" title="Enter Focus Mode" aria-label="Enter focus mode for selected task">Enter Focus Mode</button>
               </div>
             </div>
           </div>
 
           <!-- Pomodoro -->
-          <div class="card timer">
-            <h3>Pomodoro</h3>
-            <div class="time" id="pomoTime">25:00</div>
+          <div class="card timer" role="region" aria-labelledby="pomoTitle">
+            <h3 id="pomoTitle">Pomodoro Timer</h3>
+            <div class="time" id="pomoTime" aria-label="Current timer: 25 minutes">25:00</div>
             <div class="presets" role="toolbar" aria-label="Pomodoro presets">
-              <button class="btn" data-preset="25-5">25:5</button>
-              <button class="btn" data-preset="15-5">15:5</button>
-              <button class="btn" data-preset="50-10">50:10</button>
+              <button class="btn" data-preset="25-5" aria-label="Set 25 minute work, 5 minute break">25:5</button>
+              <button class="btn" data-preset="15-5" aria-label="Set 15 minute work, 5 minute break">15:5</button>
+              <button class="btn" data-preset="50-10" aria-label="Set 50 minute work, 10 minute break">50:10</button>
             </div>
             <div class="pomo-controls" role="group" aria-label="Pomodoro controls">
-              <button class="btn ghost" id="pomoStart">Start</button>
-              <button class="btn ghost" id="pomoReset">Reset</button>
+              <button class="btn ghost" id="pomoStart" aria-label="Start or pause timer">Start</button>
+              <button class="btn ghost" id="pomoReset" aria-label="Reset timer">Reset</button>
             </div>
           </div>
 
-          <div class="card" style="flex:1; display:flex; flex-direction:column;">
-            <h3>Category Radar</h3>
+          <div class="card" style="flex:1; display:flex; flex-direction:column;" role="region" aria-labelledby="radarTitle">
+            <h3 id="radarTitle">Category Radar</h3>
             <div class="chart-wrap" style="height:240px;">
-              <canvas id="radar"></canvas>
+              <canvas id="radar" aria-label="Category completion radar chart"></canvas>
             </div>
             <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
-              <button class="btn" id="btnMoreAnalytics" style="align-self:flex-start;">More analytics</button>
-              <button class="btn ghost" id="btnRolloverSummary" title="Show rollover summary">Rollover Summary</button>
+              <button class="btn" id="btnMoreAnalytics" style="align-self:flex-start;" aria-label="View detailed analytics">More analytics</button>
+              <button class="btn ghost" id="btnRolloverSummary" title="Show rollover summary" aria-label="Show rollover summary">Rollover Summary</button>
             </div>
           </div>
         </aside>
@@ -426,11 +1043,13 @@
   </div>
 
   <!-- Archive Modal -->
-  <dialog id="archiveModal">
-    <h3>Archived Tasks</h3>
-    <div class="row" style="gap:8px; margin:8px 0 12px; flex-wrap:wrap;">
-      <input type="text" id="archSearch" placeholder="Search by name" />
-      <select id="archFilter">
+  <dialog id="archiveModal" aria-labelledby="archiveModalTitle" aria-modal="true">
+    <h3 id="archiveModalTitle">Archived Tasks</h3>
+    <div class="row" style="gap:8px; margin:8px 0 12px; flex-wrap:wrap;" role="search">
+      <label for="archSearch" class="sr-only">Search archived tasks</label>
+      <input type="text" id="archSearch" placeholder="Search by name" aria-label="Search archived tasks by name" />
+      <label for="archFilter" class="sr-only">Filter by category</label>
+      <select id="archFilter" aria-label="Filter archived tasks by category">
         <option value="">All categories</option>
         <option value="business">Business</option>
         <option value="health">Health</option>
@@ -438,52 +1057,55 @@
         <option value="family">Family</option>
         <option value="network">Network</option>
       </select>
-      <button class="btn" id="archSelectAll">Select all</button>
-      <button class="btn" id="archUnarchive">Unarchive selected</button>
+      <button class="btn" id="archSelectAll" aria-label="Select all archived tasks">Select all</button>
+      <button class="btn" id="archUnarchive" aria-label="Unarchive selected tasks">Unarchive selected</button>
     </div>
-    <div class="list" id="archiveList" style="max-height:50vh; overflow:auto;"></div>
-    <div class="modal-actions"><button class="btn" onclick="document.getElementById('archiveModal').close()">Close</button></div>
+    <div class="list" id="archiveList" style="max-height:50vh; overflow:auto;" role="list" aria-label="Archived tasks list"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('archiveModal').close()" aria-label="Close archive modal">Close</button>
+    </div>
   </dialog>
 
   <!-- Settings Modal -->
-  <dialog id="settingsModal" aria-labelledby="settingsTitle">
+  <dialog id="settingsModal" aria-labelledby="settingsTitle" aria-modal="true">
     <h3 id="settingsTitle">Settings</h3>
-    <div class="modal-grid" style="margin-top:8px;">
-      <div>
-        <label style="display:block; margin-bottom:6px;">Good Morning</label>
+    <form class="modal-grid" style="margin-top:8px;">
+      <fieldset>
+        <legend style="display:block; margin-bottom:6px;">Good Morning</legend>
         <label style="display:flex; gap:8px; align-items:center;">
-          <input type="checkbox" id="settings_goodMorning_enabled" />
+          <input type="checkbox" id="settings_goodMorning_enabled" aria-describedby="goodMorningHelp" />
           <span class="muted">Enable Good Morning message</span>
         </label>
-      </div>
+      </fieldset>
 
-      <div>
-        <label style="display:block; margin-bottom:6px;">Preferred time</label>
-        <input type="time" id="settings_goodMorning_time" />
-        <div class="muted" style="font-size:12px; margin-top:6px;">Time for Good Morning message</div>
-      </div>
+      <fieldset>
+        <label for="settings_goodMorning_time" style="display:block; margin-bottom:6px;">Preferred time</label>
+        <input type="time" id="settings_goodMorning_time" aria-describedby="timeHelp" />
+        <div id="timeHelp" class="muted" style="font-size:12px; margin-top:6px;">Time for Good Morning message</div>
+      </fieldset>
 
-      <div style="grid-column:1 / -1; margin-top:6px;">
+      <fieldset style="grid-column:1 / -1; margin-top:6px;">
         <label style="display:flex; gap:8px; align-items:center;">
-          <!-- keep the same id here so existing code uses it -->
-          <input type="checkbox" id="hideCompletedToggle" /> <span>Hide completed tasks in lists</span>
+          <input type="checkbox" id="hideCompletedToggle" aria-describedby="hideCompletedHelp" />
+          <span>Hide completed tasks in lists</span>
         </label>
-      </div>
+        <div id="hideCompletedHelp" class="sr-only">When enabled, completed tasks will be hidden from the main task lists</div>
+      </fieldset>
 
-      <div style="grid-column:1 / -1; margin-top:8px;">
-        <label style="display:block; margin-bottom:6px;">Export / Import</label>
+      <fieldset style="grid-column:1 / -1; margin-top:8px;">
+        <legend style="display:block; margin-bottom:6px;">Export / Import</legend>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn" id="btnExportData" title="Export backup">Export</button>
-          <button class="btn" id="btnImportData" title="Import backup">Import</button>
-          <input type="file" id="fileImport" accept="application/json" style="display:none" />
+          <button type="button" class="btn" id="btnExportData" title="Export backup" aria-label="Export data backup">Export</button>
+          <button type="button" class="btn" id="btnImportData" title="Import backup" aria-label="Import data backup">Import</button>
+          <input type="file" id="fileImport" accept="application/json" style="display:none" aria-label="Select backup file to import" />
         </div>
         <div class="muted" style="font-size:12px; margin-top:6px;">Export a JSON backup or import one (merge or replace options shown on import).</div>
-      </div>
-    </div>
+      </fieldset>
+    </form>
 
     <div class="modal-actions" style="margin-top:12px;">
-      <button class="btn ghost" id="btnSettingsCancel">Cancel</button>
-      <button class="btn" id="btnSettingsSave">Save</button>
+      <button type="button" class="btn ghost" id="btnSettingsCancel" aria-label="Cancel settings changes">Cancel</button>
+      <button type="button" class="btn" id="btnSettingsSave" aria-label="Save settings">Save</button>
     </div>
   </dialog>
 
@@ -627,7 +1249,7 @@
   <script type="module">
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
-  // TODO: Replace with your project values from the Supabase dashboard
+  // Supabase configuration - replace with your project values
   const SUPABASE_URL = window.SUPABASE_URL || 'https://ydrteclttnipuaghdond.supabase.co'
   const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkcnRlY2x0dG5pcHVhZ2hkb25kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MjQ0MDIsImV4cCI6MjA3MzIwMDQwMn0.fGqSLTh865jzgMi5P_xCbz9svPGwOGncxvH-9ivmZSA'
 
@@ -641,7 +1263,7 @@
   const errEl = document.getElementById('authError')
 
   // Guard: if not configured, show auth screen with notice
-  const missingConfig = !SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT_ID') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_PUBLIC_ANON_KEY'
+  const missingConfig = !SUPABASE_URL || SUPABASE_URL.includes('YOUR_SUPABASE_URL') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY'
 
   let supabase = null
   try {
@@ -708,7 +1330,7 @@
       if(missingConfig || !supabase){ 
         console.log('❌ Missing config or supabase')
         showAuth(); 
-        errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; 
+        if (errEl) errEl.textContent = 'Supabase not configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY.'; 
         return 
       }
       
@@ -747,43 +1369,54 @@
 
   // Email magic-link sign-in
   btnEmailMagic?.addEventListener('click', async () => {
-    errEl.textContent = ''
-    msgEl.textContent = ''
-    if(!supabase){ errEl.textContent = 'Auth not available'; return }
+    if (errEl) errEl.textContent = ''
+    if (msgEl) msgEl.textContent = ''
+    if(!supabase){ if (errEl) errEl.textContent = 'Auth not available'; return }
     const email = (emailInput?.value || '').trim()
-    if(!email){ errEl.textContent = 'Enter your email'; return }
+    if(!email){ if (errEl) errEl.textContent = 'Enter your email'; return }
     try{
       const redirectTo = window.location.origin
       const { error } = await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo: redirectTo } })
       if(error) throw error
-      msgEl.textContent = 'Check your email for the sign-in link.'
-    }catch(e){ errEl.textContent = e?.message || 'Failed to send magic link' }
+      if (msgEl) msgEl.textContent = 'Check your email for the sign-in link.'
+    }catch(e){ if (errEl) errEl.textContent = e?.message || 'Failed to send magic link' }
   })
 
   // Google OAuth
   btnGoogle?.addEventListener('click', async () => {
-    errEl.textContent = ''
-    if(!supabase){ errEl.textContent = 'Auth not available'; return }
+    if (errEl) errEl.textContent = ''
+    if(!supabase){ if (errEl) errEl.textContent = 'Auth not available'; return }
     try{
       const redirectTo = window.location.origin
       const { error } = await supabase.auth.signInWithOAuth({ provider:'google', options:{ redirectTo } })
       if(error) throw error
-    }catch(e){ errEl.textContent = e?.message || 'Failed to start Google sign-in' }
+    }catch(e){ if (errEl) errEl.textContent = e?.message || 'Failed to start Google sign-in' }
   })
 
   // Logout
   btnLogout?.addEventListener('click', async () => {
-    try{ await supabase?.auth.signOut() }catch(e){ console.error(e) } finally { showAuth() }
+    try{ 
+      if (supabase) await supabase.auth.signOut() 
+    }catch(e){ 
+      console.error('Logout error:', e) 
+    } finally { 
+      showAuth() 
+    }
   })
 
   // Listen for auth changes
   if(supabase){
     supabase.auth.onAuthStateChange(async (event, session) => {
-      if(session) {
-        // Load user data before showing app, pass session to avoid repeated auth calls
-        await window.loadUserDataAndShowApp(session)
-      } else { 
-        showAuth() 
+      try {
+        if(session) {
+          // Load user data before showing app, pass session to avoid repeated auth calls
+          await window.loadUserDataAndShowApp(session)
+        } else { 
+          showAuth() 
+        }
+      } catch (e) {
+        console.error('Auth state change error:', e);
+        showAuth();
       }
     })
   }
@@ -963,13 +1596,17 @@ CREATE POLICY "Users can only access their own data" ON user_data
       }
       
       // Initialize app components that need to run after auth
-      if (window.startDateWatcher) {
-        console.log('🔄 Starting date watcher...')
-        window.startDateWatcher()
-      }
-      if (window.resizeConfettiCanvas) {
-        console.log('🔄 Resizing confetti canvas...')
-        window.resizeConfettiCanvas()
+      try {
+        if (window.startDateWatcher) {
+          console.log('🔄 Starting date watcher...')
+          window.startDateWatcher()
+        }
+        if (window.resizeConfettiCanvas) {
+          console.log('🔄 Resizing confetti canvas...')
+          window.resizeConfettiCanvas()
+        }
+      } catch (e) {
+        console.error('❌ Error initializing app components:', e)
       }
       
       // Show the app
@@ -991,107 +1628,148 @@ CREATE POLICY "Users can only access their own data" ON user_data
   }
 
   // Migrate localStorage data to Supabase when user logs in
-    window.migrateLocalDataToSupabase = async () => {
-      if (!supabase) return;
-      
-      try {
-        const userId = await getCurrentUserId();
-        if (!userId) return;
+  window.migrateLocalDataToSupabase = async () => {
+    if (!supabase) return;
+    
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) return;
 
-        // Check if user already has data in Supabase
-        const { data: existingData } = await supabase
-          .from('user_data')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+      // Check if user already has data in Supabase
+      const { data: existingData } = await supabase
+        .from('user_data')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-        if (existingData) return; // User already has data
+      if (existingData) return; // User already has data
 
-        // Check localStorage for existing data
-        const localData = localStorage.getItem('mainframe_v1');
-        if (!localData) return;
+      // Check localStorage for existing data
+      const localData = localStorage.getItem('mainframe_v1');
+      if (!localData) return;
 
-        // Migrate to Supabase
-        const parsedData = JSON.parse(localData);
-        const { error } = await supabase
-          .from('user_data')
-          .insert({
-            user_id: userId,
-            data: parsedData,
-            updated_at: new Date().toISOString()
-          });
+      // Migrate to Supabase
+      const parsedData = JSON.parse(localData);
+      const { error } = await supabase
+        .from('user_data')
+        .insert({
+          user_id: userId,
+          data: parsedData,
+          updated_at: new Date().toISOString()
+        });
 
-        if (!error) {
-          console.log('Successfully migrated local data to Supabase');
-          // Optionally clear localStorage after successful migration
-          // localStorage.removeItem('mainframe_v1');
-        }
-      } catch (e) {
-        console.error('Migration error:', e);
+      if (!error) {
+        console.log('Successfully migrated local data to Supabase');
+        // Optionally clear localStorage after successful migration
+        // localStorage.removeItem('mainframe_v1');
+      } else {
+        console.error('Migration error:', error);
       }
+    } catch (e) {
+      console.error('Migration error:', e);
     }
+  }
 
-    // Auto-migrate when auth state changes
-    if (supabase) {
-      supabase.auth.onAuthStateChange(async (event, session) => {
+  // Auto-migrate when auth state changes
+  if (supabase) {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      try {
         if (event === 'SIGNED_IN' && session) {
           await window.migrateLocalDataToSupabase();
         }
-      });
-    }
+      } catch (e) {
+        console.error('Auto-migration error:', e);
+      }
+    });
+  }
   </script>
 
   <script>
     /* =========================
-       DATA, UTILITIES & MIGRATION (with defensive history coercion)
-       Base: mainframe v2.4 (modified with GoodMorning + Rollover Summary)
-       Original file used as base: mainframe v2.4.html. :contentReference[oaicite:1]{index=1}
+       MAINFRAME GOAL TRACKER v3.0
+       Cleaned and organized version
     ==========================*/
-    const $ = (q, el=document) => el.querySelector(q);
-    const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
+    
+    // =========================
+    // UTILITY FUNCTIONS
+    // =========================
+    const $ = (q, el = document) => el.querySelector(q);
+    const $$ = (q, el = document) => Array.from(el.querySelectorAll(q));
     const storeKey = 'mainframe_v1';
+    
     const todayStr = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    
     const yesterdayStr = () => {
       const d = new Date();
       d.setDate(d.getDate() - 1);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
-    function addDays(dateKey, delta){
+    function addDays(dateKey, delta) {
       const parts = (dateKey || '').split('-');
       const y = parseInt(parts[0], 10);
       const m = parseInt(parts[1], 10) - 1;
       const d = parseInt(parts[2], 10);
-      const dt = new Date(y, m, d);       // construct in local time
+      const dt = new Date(y, m, d); // construct in local time
       dt.setDate(dt.getDate() + delta);
-      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     }
 
+    // =========================
+    // DEFAULT STATE
+    // =========================
     const defaultState = {
-      mainGoal:{ id:'main', name:'Your Main Goal', unit:'', color:'#FFD95A', progress:20 },
-      goals:[],
-      tasks:[],
-      archived:[],
-      history:[],
-      analytics:{ streak:0, lastRollover:'', longest:0, milestonesUnlocked:{}, badges:[], xp:0 },
-      settings:{ hideCompleted:false, autoCompleteOnFinish:false, confettiEnabled:true, focus:{ autoMarkAfterSession:false }, goodMorning: { enabled:false, hour:8, minute:0, lastShown:'' } },
-      notificationsMeta: { lastAllDailiesConfettiFor:'', lastAllTodosConfettiFor:'' }
+      mainGoal: { 
+        id: 'main', 
+        name: 'Your Main Goal', 
+        unit: '', 
+        color: '#FFD95A', 
+        progress: 20 
+      },
+      goals: [],
+      tasks: [],
+      archived: [],
+      history: [],
+      analytics: { 
+        streak: 0, 
+        lastRollover: '', 
+        longest: 0, 
+        milestonesUnlocked: {}, 
+        badges: [], 
+        xp: 0 
+      },
+      settings: { 
+        hideCompleted: false, 
+        autoCompleteOnFinish: false, 
+        confettiEnabled: true, 
+        focus: { autoMarkAfterSession: false }, 
+        goodMorning: { enabled: false, hour: 8, minute: 0, lastShown: '' } 
+      },
+      notificationsMeta: { 
+        lastAllDailiesConfettiFor: '', 
+        lastAllTodosConfettiFor: '' 
+      }
     };
 
-    function migrateState(raw){
-      if(!raw) return structuredClone(defaultState);
+    // =========================
+    // STATE MIGRATION
+    // =========================
+    function migrateState(raw) {
+      if (!raw) return structuredClone(defaultState);
       const s = Object.assign({}, defaultState, raw);
-      // handle legacy shapes (see previous versions)
-      if(s.tasks && (s.tasks.todo || s.tasks.daily) && !Array.isArray(s.tasks)){
+      
+      // Handle legacy shapes (see previous versions)
+      if (s.tasks && (s.tasks.todo || s.tasks.daily) && !Array.isArray(s.tasks)) {
         const todo = s.tasks.todo || [];
         const daily = s.tasks.daily || [];
         const unified = [];
+        
         todo.forEach(t => {
           unified.push({
-            id: t.id || (Math.random().toString(36).slice(2,9)),
+            id: t.id || (Math.random().toString(36).slice(2, 9)),
             name: t.name || 'Untitled',
             category: t.category || 'business',
             isDaily: false,
@@ -1100,10 +1778,11 @@ CREATE POLICY "Users can only access their own data" ON user_data
             completedOn: t.completedOn || ''
           });
         });
+        
         daily.forEach(t => {
           const completedToday = !!t.completedOn && t.completedOn === todayStr();
           unified.push({
-            id: t.id || (Math.random().toString(36).slice(2,9)),
+            id: t.id || (Math.random().toString(36).slice(2, 9)),
             name: t.name || 'Untitled',
             category: t.category || 'health',
             isDaily: true,
@@ -1112,8 +1791,9 @@ CREATE POLICY "Users can only access their own data" ON user_data
             completedOn: t.completedOn || ''
           });
         });
+        
         s.tasks = unified;
-      } else if(!Array.isArray(s.tasks)){
+      } else if (!Array.isArray(s.tasks)) {
         s.tasks = [];
       }
 
@@ -1122,7 +1802,11 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
       if (!Array.isArray(s.history)) {
         if (s.history && typeof s.history === 'object') {
-          try { s.history = Object.values(s.history); } catch(e){ s.history = []; }
+          try { 
+            s.history = Object.values(s.history); 
+          } catch(e) { 
+            s.history = []; 
+          }
         } else {
           s.history = [];
         }
@@ -1141,7 +1825,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
       s.settings.autoCompleteOnFinish = !!s.settings.autoCompleteOnFinish;
       s.settings.confettiEnabled = ('confettiEnabled' in s.settings) ? !!s.settings.confettiEnabled : true;
       s.settings.focus = s.settings.focus || { autoMarkAfterSession: !!(s.settings.focus && s.settings.focus.autoMarkAfterSession) };
-      s.settings.goodMorning = s.settings.goodMorning || { enabled:false, hour:8, minute:0, lastShown: '' };
+      s.settings.goodMorning = s.settings.goodMorning || { enabled: false, hour: 8, minute: 0, lastShown: '' };
 
       s.notificationsMeta = s.notificationsMeta || {};
       s.notificationsMeta.lastAllDailiesConfettiFor = s.notificationsMeta.lastAllDailiesConfettiFor || '';
@@ -1150,22 +1834,25 @@ CREATE POLICY "Users can only access their own data" ON user_data
       return s;
     }
 
-    // Get current user ID with timeout
+    // =========================
+    // AUTHENTICATION
+    // =========================
     async function getCurrentUserId() {
-      console.log('🔄 getCurrentUserId() starting...')
+      console.log('🔄 getCurrentUserId() starting...');
       
       // First try to use stored session to avoid auth calls
       if (currentSession && currentSession.user) {
-        console.log('✅ Using stored session, user ID:', currentSession.user.id)
+        console.log('✅ Using stored session, user ID:', currentSession.user.id);
         return currentSession.user.id;
       }
       
       if (!window.supabase) {
-        console.log('❌ No supabase client')
+        console.log('❌ No supabase client');
         return null;
       }
+      
       try {
-        console.log('🔄 Calling supabase.auth.getUser()...')
+        console.log('🔄 Calling supabase.auth.getUser()...');
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
@@ -1173,9 +1860,9 @@ CREATE POLICY "Users can only access their own data" ON user_data
         );
         
         const authPromise = window.supabase.auth.getUser();
-        
         const { data } = await Promise.race([authPromise, timeoutPromise]);
-        console.log('✅ Got user data:', data?.user?.id ? 'User ID found' : 'No user ID')
+        
+        console.log('✅ Got user data:', data?.user?.id ? 'User ID found' : 'No user ID');
         return data?.user?.id || null;
       } catch (e) {
         console.error('❌ Error getting user ID:', e);
@@ -1183,10 +1870,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
       }
     }
 
-    // Load user data from Supabase
-    async function load(){
-      try{
-        console.log('🔄 load() starting...')
+    // =========================
+    // DATA MANAGEMENT
+    // =========================
+    async function load() {
+      try {
+        console.log('🔄 load() starting...');
         const userId = await getCurrentUserId();
         console.log('Loading data for user ID:', userId);
         
@@ -1197,7 +1886,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
           return migrateState(raw) || structuredClone(defaultState);
         }
 
-        console.log('🔄 Querying Supabase...')
+        console.log('🔄 Querying Supabase...');
         // Load from Supabase
         const { data, error } = await window.supabase
           .from('user_data')
@@ -1221,7 +1910,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
         console.log('No data found, using default state');
         return structuredClone(defaultState);
-      }catch(e){
+      } catch (e) {
         console.error('Load error:', e);
         // Fallback to localStorage
         const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
@@ -1229,15 +1918,20 @@ CREATE POLICY "Users can only access their own data" ON user_data
       }
     }
 
+    // =========================
+    // STATE MANAGEMENT
+    // =========================
     let state = structuredClone(defaultState);
 
-    // Sanity check function
-    function startupSanityCheck(){
-      if(!Array.isArray(state.history)){
+    function startupSanityCheck() {
+      if (!Array.isArray(state.history)) {
         console.warn('Sanity check: state.history not an array on startup — normalizing and saving.');
-        if(state.history && typeof state.history === 'object'){
-          try { state.history = Object.values(state.history); }
-          catch(e){ state.history = []; }
+        if (state.history && typeof state.history === 'object') {
+          try { 
+            state.history = Object.values(state.history); 
+          } catch(e) { 
+            state.history = []; 
+          }
         } else {
           state.history = [];
         }
@@ -1245,28 +1939,31 @@ CREATE POLICY "Users can only access their own data" ON user_data
       }
     }
 
-    // Initialize app with async data loading
+    // =========================
+    // APP INITIALIZATION
+    // =========================
     async function initializeApp() {
       try {
-        console.log('🔄 initializeApp() starting...')
-        console.log('🔄 Loading data...')
+        console.log('🔄 initializeApp() starting...');
+        console.log('🔄 Initializing DOM cache...');
+        initDOMCache();
+        console.log('🔄 Loading data...');
         state = await load();
-        console.log('✅ Data loaded, running sanity check...')
+        console.log('✅ Data loaded, running sanity check...');
         startupSanityCheck();
-        console.log('✅ Sanity check complete, rendering...')
+        console.log('✅ Sanity check complete, rendering...');
         render();
-        console.log('✅ initializeApp() completed successfully')
+        console.log('✅ initializeApp() completed successfully');
       } catch (e) {
-        console.error('❌ initializeApp() failed:', e)
-        throw e
+        console.error('❌ initializeApp() failed:', e);
+        throw e;
       }
     }
 
     // Make initializeApp available globally
     window.initializeApp = initializeApp;
 
-    // Save user data to Supabase
-    async function save(){ 
+    async function save() { 
       try {
         const userId = await getCurrentUserId();
         if (!userId || !window.supabase) {
@@ -1296,30 +1993,80 @@ CREATE POLICY "Users can only access their own data" ON user_data
       }
     }
     
-    function commit(){ save(); render(); } // single source for save+render
-    function uid(){ return Math.random().toString(36).slice(2,9); }
+    // Debounced commit function to prevent excessive renders
+    let commitTimeout = null;
+    function commit() { 
+      if (commitTimeout) clearTimeout(commitTimeout);
+      commitTimeout = setTimeout(() => {
+        save(); 
+        render(); 
+        commitTimeout = null;
+      }, 100); // 100ms debounce
+    }
+    
+    function uid() { 
+      return Math.random().toString(36).slice(2, 9); 
+    }
 
-    const goalModal    = document.getElementById('goalModal');
-    const taskModal    = document.getElementById('taskModal');
+    // =========================
+    // DOM REFERENCES & CONSTANTS
+    // =========================
+    const goalModal = document.getElementById('goalModal');
+    const taskModal = document.getElementById('taskModal');
     const archiveModal = document.getElementById('archiveModal');
     const analyticsModal = document.getElementById('analyticsModal');
     const focusModal = document.getElementById('focusModal');
     const rolloverModal = document.getElementById('rolloverModal');
     const goodMorningModal = document.getElementById('goodMorningModal');
+    
+    // Cache frequently accessed DOM elements for better performance
+    const domCache = {
+      mainGoalTitle: null,
+      mainGoalUnitLabel: null,
+      mainGoalProgress: null,
+      goalsList: null,
+      todoList: null,
+      dailyList: null,
+      archiveList: null,
+      archSearch: null,
+      archFilter: null
+    };
+    
+    // Initialize DOM cache
+    function initDOMCache() {
+      domCache.mainGoalTitle = $('#mainGoalTitle');
+      domCache.mainGoalUnitLabel = $('#mainGoalUnitLabel');
+      domCache.mainGoalProgress = $('#mainGoalProgress');
+      domCache.goalsList = $('#goalsList');
+      domCache.todoList = $('#todoList');
+      domCache.dailyList = $('#dailyList');
+      domCache.archiveList = $('#archiveList');
+      domCache.archSearch = $('#archSearch');
+      domCache.archFilter = $('#archFilter');
+    }
 
     const MILESTONES = [
-      { threshold: 3, id: 'm3', name: '3-Day Streak', emoji:'✨' },
-      { threshold: 7, id: 'm7', name: '7-Day Streak', emoji:'🔥' },
-      { threshold:14, id: 'm14', name: '14-Day Streak', emoji:'🏅' },
-      { threshold:30, id: 'm30', name: '30-Day Streak', emoji:'🏆' }
+      { threshold: 3, id: 'm3', name: '3-Day Streak', emoji: '✨' },
+      { threshold: 7, id: 'm7', name: '7-Day Streak', emoji: '🔥' },
+      { threshold: 14, id: 'm14', name: '14-Day Streak', emoji: '🏅' },
+      { threshold: 30, id: 'm30', name: '30-Day Streak', emoji: '🏆' }
     ];
 
-    function tasksByType(isDaily){
+    // =========================
+    // TASK UTILITIES
+    // =========================
+    function tasksByType(isDaily) {
       return state.tasks.filter(t => !!t.isDaily === !!isDaily);
     }
-    function isTaskCompleted(t){ return !!t && !!t.completed; }
+    
+    function isTaskCompleted(t) { 
+      return !!t && !!t.completed; 
+    }
 
-    function render(){
+    // =========================
+    // RENDERING
+    // =========================
+    function render() {
       renderMainGoal();
       renderGoals();
       renderTasks();
@@ -1328,70 +2075,101 @@ CREATE POLICY "Users can only access their own data" ON user_data
       updateFocusOverlayUI();
     }
 
-    function renderMainGoal(){
-      $('#mainGoalTitle').textContent = state.mainGoal.name;
-      $('#mainGoalUnitLabel').textContent = state.mainGoal.unit ? `Unit: ${state.mainGoal.unit}`: '';
-      const bar = $('#mainGoalProgress');
-      if(bar){
-        bar.style.width = (state.mainGoal.progress||0) + '%';
+    function renderMainGoal() {
+      if (domCache.mainGoalTitle) domCache.mainGoalTitle.textContent = state.mainGoal.name;
+      if (domCache.mainGoalUnitLabel) domCache.mainGoalUnitLabel.textContent = state.mainGoal.unit ? `Unit: ${state.mainGoal.unit}` : '';
+      if (domCache.mainGoalProgress) {
+        const bar = domCache.mainGoalProgress;
+        bar.style.width = (state.mainGoal.progress || 0) + '%';
         bar.style.background = `linear-gradient(90deg, ${state.mainGoal.color}, #ffe27a)`;
-        bar.style.boxShadow = `0 0 12px ${hexToRgba(state.mainGoal.color, .5)}`;
+        bar.style.boxShadow = `0 0 12px ${hexToRgba(state.mainGoal.color, 0.5)}`;
       }
     }
 
-    function renderGoals(){
-      const c = $('#goalsList'); if(!c) return;
-      c.innerHTML = '';
-      state.goals.forEach(g=>{
-        const it = document.createElement('div'); it.className='item'; it.draggable=false;
+    function renderGoals() {
+      const c = domCache.goalsList || $('#goalsList'); 
+      if (!c) return;
+      
+      // Use DocumentFragment for better performance
+      const fragment = document.createDocumentFragment();
+      state.goals.forEach(g => {
+        const it = document.createElement('div'); 
+        it.className = 'item'; 
+        it.draggable = false;
         it.innerHTML = `
           <div class="dot" style="background:${g.color};"></div>
           <div>
             <div class="title">${escapeHtml(g.name)}</div>
-            <div class="progress" style="margin-top:6px; height:6px"><span style="width:${g.progress||0}%; background:${g.color}"></span></div>
+            <div class="progress" style="margin-top:6px; height:6px"><span style="width:${g.progress || 0}%; background:${g.color}"></span></div>
           </div>
           <div class="actions">
             <button class="icon-btn" title="Edit">✏️</button>
           </div>`;
-        it.querySelector('.icon-btn').onclick=()=>openGoalModal(g.id);
-        c.appendChild(it);
+        it.querySelector('.icon-btn').onclick = () => openGoalModal(g.id);
+        fragment.appendChild(it);
       });
+      
+      c.innerHTML = '';
+      c.appendChild(fragment);
     }
 
-    const runtime = { selectedTaskId: null, focusOverlayOpen: false };
+    // =========================
+    // RUNTIME STATE
+    // =========================
+    const runtime = { 
+      selectedTaskId: null, 
+      focusOverlayOpen: false 
+    };
 
-    function clearSelectedTask(){
+    function clearSelectedTask() {
       runtime.selectedTaskId = null;
-      $$('.item.selected').forEach(el=>el.classList.remove('selected'));
+      $$('.item.selected').forEach(el => el.classList.remove('selected'));
     }
-    function selectTask(id){
-      if(!id){ clearSelectedTask(); return; }
-      $$('.item.selected').forEach(el=>el.classList.remove('selected'));
+    
+    function selectTask(id) {
+      if (!id) { 
+        clearSelectedTask(); 
+        return; 
+      }
+      $$('.item.selected').forEach(el => el.classList.remove('selected'));
       runtime.selectedTaskId = id;
       const el = document.querySelector(`.item[data-id="${id}"]`);
-      if(el) el.classList.add('selected');
+      if (el) el.classList.add('selected');
     }
 
-    function renderTasks(){
+    function renderTasks() {
       const hide = !!(state.settings && state.settings.hideCompleted);
-      const todoList = $('#todoList'); if(todoList) todoList.innerHTML='';
-      tasksByType(false)
-        .filter(t => !hide || !isTaskCompleted(t))
-        .forEach(t => todoList && todoList.appendChild(taskElement(t)));
+      
+      // Render todo tasks with DocumentFragment
+      const todoList = domCache.todoList || $('#todoList'); 
+      if (todoList) {
+        const todoFragment = document.createDocumentFragment();
+        tasksByType(false)
+          .filter(t => !hide || !isTaskCompleted(t))
+          .forEach(t => todoFragment.appendChild(taskElement(t)));
+        todoList.innerHTML = '';
+        todoList.appendChild(todoFragment);
+      }
 
-      const dailyList = $('#dailyList'); if(dailyList) dailyList.innerHTML='';
-      tasksByType(true)
-        .filter(t => !hide || !isTaskCompleted(t))
-        .forEach(t => dailyList && dailyList.appendChild(taskElement(t, true)));
+      // Render daily tasks with DocumentFragment
+      const dailyList = domCache.dailyList || $('#dailyList'); 
+      if (dailyList) {
+        const dailyFragment = document.createDocumentFragment();
+        tasksByType(true)
+          .filter(t => !hide || !isTaskCompleted(t))
+          .forEach(t => dailyFragment.appendChild(taskElement(t, true)));
+        dailyList.innerHTML = '';
+        dailyList.appendChild(dailyFragment);
+      }
 
-      if(runtime.selectedTaskId){
+      if (runtime.selectedTaskId) {
         const sel = document.querySelector(`.item[data-id="${runtime.selectedTaskId}"]`);
-        if(!sel) runtime.selectedTaskId = null;
+        if (!sel) runtime.selectedTaskId = null;
         else sel.classList.add('selected');
       }
     }
 
-    function taskElement(t, isDaily=false){
+    function taskElement(t, isDaily = false) {
       const it = document.createElement('div');
       const isCompleted = isTaskCompleted(t);
       it.className = 'item drag' + (isCompleted ? ' completed' : '');
@@ -1402,14 +2180,23 @@ CREATE POLICY "Users can only access their own data" ON user_data
       const checkboxHtml = `<input type="checkbox" class="taskChk" ${t.completed ? 'checked' : ''} aria-label="Mark task complete">`;
       const labelHtml = `<label style="grid-column:1/3; display:flex; align-items:center; gap:8px; cursor:pointer;">
           ${checkboxHtml} <div class="${dotCls}"></div> <div><div class="title">${escapeHtml(t.name)}</div>
-          ${isDaily ? `<div class="pill">${t.completed? 'Completed today ✅':'Not yet today'}</div>`: ''}</div></label>`;
+          ${isDaily ? `<div class="pill">${t.completed ? 'Completed today ✅' : 'Not yet today'}</div>` : ''}</div></label>`;
       it.innerHTML = `${labelHtml}<div class="actions"><button class="icon-btn" title="Edit">✏️</button>
         <button class="icon-btn" title="Archive">📦</button></div>`;
-      const btns = it.querySelectorAll('.icon-btn'); const editBtn = btns[0], archBtn = btns[1];
-      if(editBtn) editBtn.onclick = (e)=>{ e.stopPropagation(); openTaskModal(t.id, isDaily ? 'daily' : 'todo'); };
-      if(archBtn) archBtn.onclick = (e)=>{ e.stopPropagation(); archiveTask(t.id); commit(); checkAllCompletedTriggers(); };
+      const btns = it.querySelectorAll('.icon-btn'); 
+      const editBtn = btns[0], archBtn = btns[1];
+      if (editBtn) editBtn.onclick = (e) => { 
+        e.stopPropagation(); 
+        openTaskModal(t.id, isDaily ? 'daily' : 'todo'); 
+      };
+      if (archBtn) archBtn.onclick = (e) => { 
+        e.stopPropagation(); 
+        archiveTask(t.id); 
+        commit(); 
+        checkAllCompletedTriggers(); 
+      };
       const chk = it.querySelector('.taskChk');
-      if(chk){
+      if (chk) {
         chk.addEventListener('change', (e) => {
           e.stopPropagation();
           toggleTaskComplete(t.id);
@@ -1418,33 +2205,47 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
       it.addEventListener('click', (e) => {
         const ignored = e.target.closest('.icon-btn') || e.target.closest('input');
-        if(ignored) return;
+        if (ignored) return;
         selectTask(t.id);
       });
 
-      it.addEventListener('dragstart', e=>{
+      it.addEventListener('dragstart', e => {
         it.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', JSON.stringify({id:t.id, from:isDaily?'daily':'todo'}));
+        e.dataTransfer.setData('text/plain', JSON.stringify({id: t.id, from: isDaily ? 'daily' : 'todo'}));
       });
-      it.addEventListener('dragend', e=>{ it.classList.remove('dragging'); });
+      it.addEventListener('dragend', e => { 
+        it.classList.remove('dragging'); 
+      });
 
       return it;
     }
 
-    function renderArchive(){
-      const list = $('#archiveList'); if(!list) return; list.innerHTML='';
-      const q = ($('#archSearch') && $('#archSearch').value.toLowerCase()) || '';
-      const f = ($('#archFilter') && $('#archFilter').value) || '';
-      const items = state.archived.filter(a=> (!q || a.name.toLowerCase().includes(q)) && (!f || a.category===f));
-      items.forEach(a=>{
-        const it = document.createElement('div'); it.className='item';
+    function renderArchive() {
+      const list = domCache.archiveList || $('#archiveList'); 
+      if (!list) return; 
+      
+      const q = (domCache.archSearch && domCache.archSearch.value.toLowerCase()) || '';
+      const f = (domCache.archFilter && domCache.archFilter.value) || '';
+      const items = state.archived.filter(a => (!q || a.name.toLowerCase().includes(q)) && (!f || a.category === f));
+      
+      // Use DocumentFragment for better performance
+      const fragment = document.createDocumentFragment();
+      items.forEach(a => {
+        const it = document.createElement('div'); 
+        it.className = 'item';
         it.dataset.id = a.id;
         it.innerHTML = `<input type="checkbox" class="archChk" />
-          <div><div class="title">${escapeHtml(a.name)}</div><div class="pill">${(a.isDaily? 'Daily':'Todo').toUpperCase()} • <span class="dot ${a.category}"></span> ${a.category}</div></div>
+          <div><div class="title">${escapeHtml(a.name)}</div><div class="pill">${(a.isDaily ? 'Daily' : 'Todo').toUpperCase()} • <span class="dot ${a.category}"></span> ${a.category}</div></div>
           <div class="actions"><button class="icon-btn" title="Delete">🗑️</button></div>`;
-        it.querySelector('button').onclick=()=>{ state.archived = state.archived.filter(x=>x.id !== a.id); commit(); };
-        list.appendChild(it);
+        it.querySelector('button').onclick = () => { 
+          state.archived = state.archived.filter(x => x.id !== a.id); 
+          commit(); 
+        };
+        fragment.appendChild(it);
       });
+      
+      list.innerHTML = '';
+      list.appendChild(fragment);
     }
 
     /* =========================
@@ -2431,7 +3232,8 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
     function startDateWatcher(){
       if(dateWatcherId) clearInterval(dateWatcherId);
-      dateWatcherId = setInterval(checkForDateChange, 5000);
+      // Reduced polling frequency from 5s to 30s for better performance
+      dateWatcherId = setInterval(checkForDateChange, 30000);
       checkForDateChange();
     }
 
