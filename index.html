@@ -1245,14 +1245,12 @@
     }
     
     .card--donut .chart-wrap canvas {
-      width: auto !important;
-      height: auto !important;
       max-width: var(--donut-size) !important;
       max-height: var(--donut-size) !important;
       display: block;
     }
 
-    canvas {
+    canvas:not(#donutChart) {
       display: block;
       width: 100% !important;
       height: 100% !important;
@@ -3532,24 +3530,53 @@ CREATE POLICY "Users can only access their own data" ON user_data
       if(donutCanvas){
         // find the wrapping container (chart-wrap) and the CSS variable cap
         const wrap = donutCanvas.closest('.chart-wrap');
-        const cssMax = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--donut-size')) || 160;
-        const wrapW = wrap ? Math.max(80, wrap.clientWidth) : donutCanvas.clientWidth || cssMax;
+        const cssMax = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--donut-size')) || 180;
+        const wrapW = wrap ? Math.max(100, wrap.clientWidth) : donutCanvas.clientWidth || cssMax;
         // choose a size that's the min of available width and the CSS cap
         const size = Math.min(cssMax, wrapW);
-        // apply a fixed pixel size so Chart.js has a stable target to render to
+        
+        // Clear any existing styles and set fixed dimensions
+        donutCanvas.style.width = '';
+        donutCanvas.style.height = '';
+        donutCanvas.removeAttribute('width');
+        donutCanvas.removeAttribute('height');
+        
+        // Set fixed pixel dimensions
+        donutCanvas.width = size;
+        donutCanvas.height = size;
         donutCanvas.style.width = size + 'px';
         donutCanvas.style.height = size + 'px';
+        
         // ensure Chart.js renders to the CSS pixel size by using maintainAspectRatio:false
         const dctx = donutCanvas.getContext('2d');
         analyticsCharts.donut = new Chart(dctx, {
           type:'doughnut',
           data:{ labels:['Completed','Pending'], datasets:[{ data:[data.donut.completed,data.donut.pending], backgroundColor:[getCssColor('--gold'), 'rgba(255,255,255,0.08)'], borderWidth:0 }] },
           options:{
-            plugins:{ legend:{ position:'bottom' } },
-            responsive:true,
-            maintainAspectRatio:false,
+            plugins:{ 
+              legend:{ 
+                position:'bottom',
+                labels: {
+                  usePointStyle: true,
+                  padding: 20
+                }
+              } 
+            },
+            responsive: false,
+            maintainAspectRatio: false,
             cutout:'60%',
-            animation:{ duration:360 }
+            animation:{ 
+              duration: 800,
+              easing: 'easeInOutQuart'
+            },
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            onHover: (event, activeElements) => {
+              // Prevent chart resizing on hover
+              event.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+            }
           }
         });
       }
