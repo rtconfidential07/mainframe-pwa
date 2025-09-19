@@ -64,9 +64,9 @@
       --radius-2xl: 24px;
       
       /* Enhanced Layout */
-      --gap: 16px;
-      --panel-padding: 18px;
-      --max-width: 1600px;
+      --gap: 20px;
+      --panel-padding: 20px;
+      --max-width: 1800px;
       
       /* Enhanced Shadows */
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -100,8 +100,6 @@
       color: var(--color-text);
       background: linear-gradient(135deg, var(--color-bg) 0%, #0f1419 100%);
       min-height: 100vh;
-      max-height: 100vh;
-      overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       line-height: 1.5;
@@ -109,14 +107,14 @@
     
     .app {
       max-width: var(--max-width);
-      margin: 16px auto;
-      padding: 0 var(--spacing-md);
+      margin: 32px auto;
+      padding: 0 var(--spacing-lg);
     }
     
     .mainframe {
       background: linear-gradient(145deg, var(--color-panel) 0%, var(--color-panel-elevated) 100%);
       border-radius: var(--radius-2xl);
-      padding: 20px;
+      padding: 24px;
       box-shadow: 
         0 0 0 1px rgba(255, 255, 255, 0.05) inset,
         var(--shadow-xl);
@@ -131,8 +129,7 @@
       grid-template-columns: 1fr 1fr 1fr 320px;
       grid-template-rows: auto 1fr auto;
       gap: var(--gap);
-      height: calc(100vh - 80px);
-      max-height: calc(100vh - 80px);
+      min-height: 80vh;
     }
     
     .section {
@@ -144,9 +141,6 @@
       transition: all var(--transition-normal);
       position: relative;
       overflow: hidden;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
     }
     
     .section:hover {
@@ -221,8 +215,6 @@
       display: flex;
       flex-direction: column;
       gap: var(--gap);
-      height: 100%;
-      overflow: hidden;
     }
     
     .archive-bar {
@@ -345,9 +337,6 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
     }
     
     .item {
@@ -503,9 +492,6 @@
       display: flex;
       flex-direction: column;
       gap: var(--spacing-sm);
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
     }
     
     .card:hover {
@@ -831,8 +817,6 @@
     @media (max-width: 1400px) {
       .grid {
         grid-template-columns: 1fr 1fr 280px;
-        height: calc(100vh - 70px);
-        max-height: calc(100vh - 70px);
       }
       
       .analytics {
@@ -848,9 +832,6 @@
       .grid {
         grid-template-columns: 1fr;
         gap: var(--spacing-lg);
-        height: auto;
-        max-height: none;
-        min-height: calc(100vh - 60px);
       }
       
       .main-goal,
@@ -867,8 +848,6 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: var(--spacing-md);
-        height: auto;
-        overflow: visible;
       }
       
       .card:last-child {
@@ -887,17 +866,9 @@
         border-radius: var(--radius-lg);
       }
       
-      .grid {
-        height: auto;
-        max-height: none;
-        min-height: calc(100vh - 40px);
-      }
-      
       .analytics {
         display: flex;
         flex-direction: column;
-        height: auto;
-        overflow: visible;
       }
       
       .card.timer {
