@@ -1764,7 +1764,7 @@
     </div>
     <div class="list" id="archiveList" style="max-height:50vh; overflow:auto;" role="list" aria-label="Archived tasks list"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="document.getElementById('archiveModal').close()" aria-label="Close archive modal">Close</button>
+      <button class="btn" onclick="const modal = document.getElementById('archiveModal'); if(modal) modal.close()" aria-label="Close archive modal">Close</button>
     </div>
   </dialog>
 
@@ -2006,7 +2006,8 @@
   function showAuth(){
     appRoot.style.display = 'none'
     authScreen.classList.remove('hidden')
-    document.getElementById('loadingScreen').style.display = 'none'
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) loadingScreen.style.display = 'none';
     btnLogout && (btnLogout.style.display = 'none')
   }
   function showLoading(){
@@ -2111,9 +2112,13 @@
     supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if(session) {
+          // Store session globally
+          window.currentSession = session;
           // Load user data before showing app, pass session to avoid repeated auth calls
           await window.loadUserDataAndShowApp(session)
         } else { 
+          // Clear session when signed out
+          window.currentSession = null;
           showAuth() 
         }
       } catch (e) {
@@ -2127,7 +2132,7 @@
   refreshAuthUI()
 
   // Data source status notification
-  function showDataStatusNotification(message, type = 'connected') {
+  window.showDataStatusNotification = function(message, type = 'connected') {
     const notification = document.getElementById('dataStatusNotification');
     if (!notification) return;
     
@@ -2275,7 +2280,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
   }
 
   // Store the current session globally to avoid repeated auth calls
-  let currentSession = null;
+  window.currentSession = null;
 
   // Load user data and show app (called after authentication)
   window.loadUserDataAndShowApp = async (session = null) => {
@@ -2284,7 +2289,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
       
       // Store session for later use
       if (session) {
-        currentSession = session;
+        window.currentSession = session;
         console.log('✅ Session stored for later use')
       }
       
@@ -2394,12 +2399,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
       if (!error) {
         console.log('✅ Successfully migrated local data to Supabase');
-        showDataStatusNotification('✅ Data migrated to cloud', 'connected');
+        window.showDataStatusNotification('✅ Data migrated to cloud', 'connected');
         // Optionally clear localStorage after successful migration
         // localStorage.removeItem('mainframe_v1');
       } else {
         console.error('Migration error:', error);
-        showDataStatusNotification('⚠️ Migration failed', 'fallback');
+        window.showDataStatusNotification('⚠️ Migration failed', 'fallback');
       }
     } catch (e) {
       console.error('Migration error:', e);
@@ -2434,7 +2439,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
       if (data && data.data) {
         console.log('✅ Data loaded from Supabase:', data.data);
-        showDataStatusNotification('✅ Connected to live data', 'connected');
+        window.showDataStatusNotification('✅ Connected to live data', 'connected');
         // Update the app state with the fresh data
         if (window.state && window.migrateState) {
           window.state = window.migrateState(data.data);
@@ -2445,7 +2450,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
         }
       } else {
         console.log('No data found in Supabase');
-        showDataStatusNotification('⚠️ No data found', 'fallback');
+        window.showDataStatusNotification('⚠️ No data found', 'fallback');
       }
     } catch (e) {
       console.error('Error refreshing data:', e);
@@ -2457,6 +2462,8 @@ CREATE POLICY "Users can only access their own data" ON user_data
     supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (event === 'SIGNED_IN' && session) {
+          // Store session globally
+          window.currentSession = session;
           console.log('🔄 User signed in, running migration...');
           await window.migrateLocalDataToSupabase();
           
@@ -2465,6 +2472,9 @@ CREATE POLICY "Users can only access their own data" ON user_data
             console.log('🔄 Refreshing data after sign in...');
             await window.refreshDataFromSupabase();
           }, 2000);
+        } else if (event === 'SIGNED_OUT') {
+          // Clear session when signed out
+          window.currentSession = null;
         }
       } catch (e) {
         console.error('Auto-migration error:', e);
@@ -2660,9 +2670,9 @@ CREATE POLICY "Users can only access their own data" ON user_data
       console.log('🔄 getCurrentUserId() starting...');
       
       // First try to use stored session to avoid auth calls
-      if (currentSession && currentSession.user) {
-        console.log('✅ Using stored session, user ID:', currentSession.user.id);
-        return currentSession.user.id;
+      if (window.currentSession && window.currentSession.user) {
+        console.log('✅ Using stored session, user ID:', window.currentSession.user.id);
+        return window.currentSession.user.id;
       }
       
       if (!window.supabase) {
@@ -2729,14 +2739,14 @@ CREATE POLICY "Users can only access their own data" ON user_data
               return migrateState(raw) || structuredClone(defaultState);
             } else if (retryData && retryData.data) {
               console.log('✅ Retry successful, loaded user data from Supabase:', retryData.data);
-              showDataStatusNotification('✅ Connected to live data', 'connected');
+              window.showDataStatusNotification('✅ Connected to live data', 'connected');
               return migrateState(retryData.data);
             }
           }
 
         if (data && data.data) {
           console.log('✅ Loaded user data from Supabase:', data.data);
-          showDataStatusNotification('✅ Connected to live data', 'connected');
+          window.showDataStatusNotification('✅ Connected to live data', 'connected');
           return migrateState(data.data);
         }
 
@@ -2756,7 +2766,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
         // Fallback to localStorage only if not authenticated or no Supabase
         console.log('No user ID or supabase, falling back to localStorage');
-        showDataStatusNotification('⚠️ Using offline data', 'fallback');
+        window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
         const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
         return migrateState(raw) || structuredClone(defaultState);
       } catch (e) {
@@ -2765,12 +2775,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
         const userId = await getCurrentUserId();
         if (!userId) {
           console.log('Not authenticated, falling back to localStorage');
-          showDataStatusNotification('⚠️ Using offline data', 'fallback');
+          window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
           const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
           return migrateState(raw) || structuredClone(defaultState);
         } else {
           console.error('Authenticated but load failed, using default state');
-          showDataStatusNotification('⚠️ Using offline data', 'fallback');
+          window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
           return structuredClone(defaultState);
         }
       }
@@ -2856,8 +2866,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
     function commit() { 
       if (commitTimeout) clearTimeout(commitTimeout);
       commitTimeout = setTimeout(() => {
-        save(); 
-        render(); 
+        try {
+          save(); 
+          render(); 
+        } catch (e) {
+          console.error('Commit error:', e);
+        }
         commitTimeout = null;
       }, 100); // 100ms debounce
     }
@@ -2892,15 +2906,15 @@ CREATE POLICY "Users can only access their own data" ON user_data
     
     // Initialize DOM cache
     function initDOMCache() {
-      domCache.mainGoalTitle = $('#mainGoalTitle');
-      domCache.mainGoalUnitLabel = $('#mainGoalUnitLabel');
-      domCache.mainGoalProgress = $('#mainGoalProgress');
-      domCache.goalsList = $('#goalsList');
-      domCache.todoList = $('#todoList');
-      domCache.dailyList = $('#dailyList');
-      domCache.archiveList = $('#archiveList');
-      domCache.archSearch = $('#archSearch');
-      domCache.archFilter = $('#archFilter');
+      domCache.mainGoalTitle = $('#mainGoalTitle') || null;
+      domCache.mainGoalUnitLabel = $('#mainGoalUnitLabel') || null;
+      domCache.mainGoalProgress = $('#mainGoalProgress') || null;
+      domCache.goalsList = $('#goalsList') || null;
+      domCache.todoList = $('#todoList') || null;
+      domCache.dailyList = $('#dailyList') || null;
+      domCache.archiveList = $('#archiveList') || null;
+      domCache.archSearch = $('#archSearch') || null;
+      domCache.archFilter = $('#archFilter') || null;
     }
 
     const MILESTONES = [
@@ -2925,12 +2939,16 @@ CREATE POLICY "Users can only access their own data" ON user_data
     // RENDERING
     // =========================
     function render() {
-      renderMainGoal();
-      renderGoals();
-      renderTasks();
-      renderStreak();
-      renderRadar();
-      updateFocusOverlayUI();
+      try {
+        renderMainGoal();
+        renderGoals();
+        renderTasks();
+        renderStreak();
+        renderRadar();
+        updateFocusOverlayUI();
+      } catch (e) {
+        console.error('Render error:', e);
+      }
     }
 
     function renderMainGoal() {
