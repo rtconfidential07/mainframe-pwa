@@ -2041,7 +2041,7 @@
       
       // Add timeout to session check to prevent hanging
       const sessionTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session check timeout after 5 seconds')), 5000)
+        setTimeout(() => reject(new Error('Session check timeout after 3 seconds')), 3000)
       );
       
       const sessionPromise = supabase.auth.getSession();
@@ -2051,6 +2051,8 @@
       
       if(data && data.session){ 
         console.log('✅ User authenticated, loading data...')
+        // Store session immediately to prevent re-initialization
+        window.currentSession = data.session;
         // Load user data before showing app, pass session to avoid repeated auth calls
         await window.loadUserDataAndShowApp(data.session)
       } else { 
@@ -2281,10 +2283,20 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
   // Store the current session globally to avoid repeated auth calls
   window.currentSession = null;
+  
+  // Prevent multiple simultaneous initializations
+  window.isInitializing = false;
 
   // Load user data and show app (called after authentication)
   window.loadUserDataAndShowApp = async (session = null) => {
+    // Prevent multiple simultaneous initializations
+    if (window.isInitializing) {
+      console.log('⚠️ App already initializing, skipping...');
+      return;
+    }
+    
     try {
+      window.isInitializing = true;
       console.log('📱 Loading user data and showing app...')
       
       // Store session for later use
@@ -2302,7 +2314,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
         
         // Add timeout for the entire initialization
         const initTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Initialization timeout after 15 seconds')), 15000)
+          setTimeout(() => reject(new Error('Initialization timeout after 8 seconds')), 8000)
         );
         
         try {
@@ -2346,6 +2358,9 @@ CREATE POLICY "Users can only access their own data" ON user_data
     } catch (e) {
       console.error('❌ Error loading user data:', e)
       showApp() // Show app anyway, it will fall back to default state
+    } finally {
+      // Reset initialization flag
+      window.isInitializing = false;
     }
   }
 
@@ -2685,7 +2700,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('Auth timeout after 5 seconds')), 5000)
         );
         
         const authPromise = window.supabase.auth.getUser();
@@ -2711,44 +2726,61 @@ CREATE POLICY "Users can only access their own data" ON user_data
         // If we have a user ID and Supabase, always try to load from Supabase first
         if (userId && window.supabase) {
           console.log('🔄 Querying Supabase...');
-          // Load from Supabase
-          const { data, error } = await window.supabase
-            .from('user_data')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
-
-          console.log('Supabase query result:', { data, error });
-
-          if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-            console.error('Error loading user data from Supabase:', error);
-            // Don't fallback to localStorage immediately - this could be a network issue
-            // Try to retry once after a short delay
-            console.log('🔄 Retrying Supabase query after delay...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const { data: retryData, error: retryError } = await window.supabase
+          
+          // Add timeout to Supabase query to prevent hanging
+          const queryTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Supabase query timeout after 10 seconds')), 10000)
+          );
+          
+          try {
+            // Load from Supabase with timeout
+            const queryPromise = window.supabase
               .from('user_data')
               .select('*')
               .eq('user_id', userId)
               .single();
               
-            if (retryError) {
-              console.error('Retry also failed, falling back to localStorage');
-              const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
-              return migrateState(raw) || structuredClone(defaultState);
-            } else if (retryData && retryData.data) {
-              console.log('✅ Retry successful, loaded user data from Supabase:', retryData.data);
-              window.showDataStatusNotification('✅ Connected to live data', 'connected');
-              return migrateState(retryData.data);
-            }
-          }
+            const { data, error } = await Promise.race([queryPromise, queryTimeout]);
 
-        if (data && data.data) {
-          console.log('✅ Loaded user data from Supabase:', data.data);
-          window.showDataStatusNotification('✅ Connected to live data', 'connected');
-          return migrateState(data.data);
-        }
+            console.log('Supabase query result:', { data, error });
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+              console.error('Error loading user data from Supabase:', error);
+              // Don't fallback to localStorage immediately - this could be a network issue
+              // Try to retry once after a short delay
+              console.log('🔄 Retrying Supabase query after delay...');
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              const retryQueryPromise = window.supabase
+                .from('user_data')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+                
+              const { data: retryData, error: retryError } = await Promise.race([retryQueryPromise, queryTimeout]);
+                
+              if (retryError) {
+                console.error('Retry also failed, falling back to localStorage');
+                const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+                return migrateState(raw) || structuredClone(defaultState);
+              } else if (retryData && retryData.data) {
+                console.log('✅ Retry successful, loaded user data from Supabase:', retryData.data);
+                window.showDataStatusNotification('✅ Connected to live data', 'connected');
+                return migrateState(retryData.data);
+              }
+            }
+
+            if (data && data.data) {
+              console.log('✅ Loaded user data from Supabase:', data.data);
+              window.showDataStatusNotification('✅ Connected to live data', 'connected');
+              return migrateState(data.data);
+            }
+          } catch (queryError) {
+            console.error('Supabase query failed or timed out:', queryError);
+            // Fallback to localStorage
+            const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+            return migrateState(raw) || structuredClone(defaultState);
+          }
 
           // No data found in Supabase - this might be a new device
           // Check if there's local data to migrate
