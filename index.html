@@ -2150,6 +2150,24 @@
 
   // Expose a tiny helper so you can set keys at runtime from console if needed
   window.setSupabaseKeys = (url, key) => { window.SUPABASE_URL = url; window.SUPABASE_ANON_KEY = key; location.reload() }
+  
+  // Test Supabase connectivity
+  window.testSupabaseConnection = async () => {
+    if (!supabase) {
+      console.log('❌ Supabase not initialized');
+      return;
+    }
+    
+    try {
+      console.log('🔄 Testing Supabase connection...');
+      const { data, error } = await supabase.from('user_data').select('count').limit(1);
+      console.log('📡 Connection test result:', { data, error });
+      return !error;
+    } catch (e) {
+      console.error('❌ Connection test failed:', e);
+      return false;
+    }
+  };
 
   // Debug helpers for Supabase
   window.debugSupabase = async () => {
@@ -2314,7 +2332,7 @@ CREATE POLICY "Users can only access their own data" ON user_data
         
         // Add timeout for the entire initialization
         const initTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Initialization timeout after 8 seconds')), 8000)
+          setTimeout(() => reject(new Error('Initialization timeout after 5 seconds')), 5000)
         );
         
         try {
@@ -2346,6 +2364,29 @@ CREATE POLICY "Users can only access their own data" ON user_data
       // Show the app
       console.log('🎉 Showing app...')
       showApp()
+      
+      // Try to sync data from Supabase in the background after app is shown
+      if (window.currentSession && window.currentSession.user) {
+        setTimeout(async () => {
+          console.log('🔄 Background sync: attempting to load fresh data from Supabase...');
+          try {
+            const { data, error } = await window.supabase
+              .from('user_data')
+              .select('*')
+              .eq('user_id', window.currentSession.user.id)
+              .single();
+              
+            if (!error && data && data.data) {
+              console.log('✅ Background sync successful, updating app with fresh data');
+              window.state = window.migrateState(data.data);
+              if (window.render) window.render();
+              window.showDataStatusNotification('✅ Synced with live data', 'connected');
+            }
+          } catch (e) {
+            console.log('Background sync failed, continuing with local data');
+          }
+        }, 2000);
+      }
       
       // Fallback: Force show app after 5 seconds if still loading
       setTimeout(() => {
@@ -2723,17 +2764,17 @@ CREATE POLICY "Users can only access their own data" ON user_data
         const userId = await getCurrentUserId();
         console.log('Loading data for user ID:', userId);
         
-        // If we have a user ID and Supabase, always try to load from Supabase first
+        // If we have a user ID and Supabase, try to load from Supabase with aggressive timeout
         if (userId && window.supabase) {
           console.log('🔄 Querying Supabase...');
           
-          // Add timeout to Supabase query to prevent hanging
+          // Much shorter timeout for better UX - fallback quickly if Supabase is slow
           const queryTimeout = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Supabase query timeout after 10 seconds')), 10000)
+            setTimeout(() => reject(new Error('Supabase query timeout after 3 seconds')), 3000)
           );
           
           try {
-            // Load from Supabase with timeout
+            // Load from Supabase with short timeout
             const queryPromise = window.supabase
               .from('user_data')
               .select('*')
@@ -2746,28 +2787,11 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
             if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
               console.error('Error loading user data from Supabase:', error);
-              // Don't fallback to localStorage immediately - this could be a network issue
-              // Try to retry once after a short delay
-              console.log('🔄 Retrying Supabase query after delay...');
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              const retryQueryPromise = window.supabase
-                .from('user_data')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
-                
-              const { data: retryData, error: retryError } = await Promise.race([retryQueryPromise, queryTimeout]);
-                
-              if (retryError) {
-                console.error('Retry also failed, falling back to localStorage');
-                const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
-                return migrateState(raw) || structuredClone(defaultState);
-              } else if (retryData && retryData.data) {
-                console.log('✅ Retry successful, loaded user data from Supabase:', retryData.data);
-                window.showDataStatusNotification('✅ Connected to live data', 'connected');
-                return migrateState(retryData.data);
-              }
+              // Fallback to localStorage immediately for better UX
+              console.log('🔄 Falling back to localStorage due to Supabase error');
+              const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+              window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
+              return migrateState(raw) || structuredClone(defaultState);
             }
 
             if (data && data.data) {
@@ -2777,8 +2801,10 @@ CREATE POLICY "Users can only access their own data" ON user_data
             }
           } catch (queryError) {
             console.error('Supabase query failed or timed out:', queryError);
-            // Fallback to localStorage
+            // Fallback to localStorage immediately
+            console.log('🔄 Supabase timeout, using localStorage data');
             const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+            window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
             return migrateState(raw) || structuredClone(defaultState);
           }
 
