@@ -1952,8 +1952,8 @@
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
   // Supabase configuration - replace with your project values
-  const SUPABASE_URL = window.SUPABASE_URL || 'https://ydrteclttnipuaghdond.supabase.co'
-  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkcnRlY2x0dG5pcHVhZ2hkb25kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MjQ0MDIsImV4cCI6MjA3MzIwMDQwMn0.fGqSLTh865jzgMi5P_xCbz9svPGwOGncxvH-9ivmZSA'
+  const SUPABASE_URL = window.SUPABASE_URL || 'https://ujhbnnrixfzfntocvtbw.supabase.co'
+  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqaGJubnJpeGZ6Zm50b2N2dGJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzOTI2MjIsImV4cCI6MjA3Mzk2ODYyMn0.iyDCDb07J6ugIaSIMaRbbnXEcopUvLd8VStAhNREQwQ'
 
   const authScreen = document.getElementById('authScreen')
   const appRoot = document.querySelector('.app')
@@ -1977,8 +1977,6 @@
   }
 
   function showApp(){
-    console.log('🎯 showApp() called - hiding loading screen and showing app')
-    
     // Hide auth screen
     authScreen.classList.add('hidden')
     
@@ -1986,22 +1984,15 @@
     const loadingScreen = document.getElementById('loadingScreen')
     if (loadingScreen) {
       loadingScreen.style.display = 'none'
-      console.log('✅ Loading screen hidden')
-    } else {
-      console.log('❌ Loading screen element not found')
     }
     
     // Show app
     appRoot.style.display = ''
-    console.log('✅ App root shown')
     
     // Show logout button
     if (btnLogout) {
       btnLogout.style.display = 'inline-flex'
-      console.log('✅ Logout button shown')
     }
-    
-    console.log('🎉 showApp() completed')
   }
   function showAuth(){
     appRoot.style.display = 'none'
@@ -2309,18 +2300,16 @@ CREATE POLICY "Users can only access their own data" ON user_data
   window.loadUserDataAndShowApp = async (session = null) => {
     // Prevent multiple simultaneous initializations
     if (window.isInitializing) {
-      console.log('⚠️ App already initializing, skipping...');
       return;
     }
     
     try {
       window.isInitializing = true;
-      console.log('📱 Loading user data and showing app...')
+      console.log('📱 Loading app...')
       
       // Store session for later use
       if (session) {
         window.currentSession = session;
-        console.log('✅ Session stored for later use')
       }
       
       // Wait a moment for auth to fully settle
@@ -2328,8 +2317,6 @@ CREATE POLICY "Users can only access their own data" ON user_data
       
       // Load user data with timeout fallback
       if (window.initializeApp) {
-        console.log('🔄 Initializing app...')
-        
         // Add timeout for the entire initialization
         const initTimeout = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Initialization timeout after 5 seconds')), 5000)
@@ -2337,38 +2324,27 @@ CREATE POLICY "Users can only access their own data" ON user_data
         
         try {
           await Promise.race([window.initializeApp(), initTimeout]);
-          console.log('✅ App initialized')
         } catch (e) {
-          console.error('❌ App initialization failed or timed out:', e)
-          console.log('🔄 Falling back to default state...')
+          console.error('❌ App initialization failed:', e)
           // Continue anyway with default state
         }
-      } else {
-        console.log('❌ initializeApp not available')
       }
       
       // Initialize app components that need to run after auth
       try {
-        if (window.startDateWatcher) {
-          console.log('🔄 Starting date watcher...')
-          window.startDateWatcher()
-        }
-        if (window.resizeConfettiCanvas) {
-          console.log('🔄 Resizing confetti canvas...')
-          window.resizeConfettiCanvas()
-        }
+        if (window.startDateWatcher) window.startDateWatcher()
+        if (window.resizeConfettiCanvas) window.resizeConfettiCanvas()
       } catch (e) {
         console.error('❌ Error initializing app components:', e)
       }
       
       // Show the app
-      console.log('🎉 Showing app...')
       showApp()
+      console.log('✅ App loaded successfully')
       
       // Try to sync data from Supabase in the background after app is shown
       if (window.currentSession && window.currentSession.user) {
         setTimeout(async () => {
-          console.log('🔄 Background sync: attempting to load fresh data from Supabase...');
           try {
             const { data, error } = await window.supabase
               .from('user_data')
@@ -2377,13 +2353,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
               .single();
               
             if (!error && data && data.data) {
-              console.log('✅ Background sync successful, updating app with fresh data');
               window.state = window.migrateState(data.data);
               if (window.render) window.render();
               window.showDataStatusNotification('✅ Synced with live data', 'connected');
             }
           } catch (e) {
-            console.log('Background sync failed, continuing with local data');
+            // Silent fail for background sync
           }
         }, 2000);
       }
@@ -2470,15 +2445,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
   // Force refresh data from Supabase (useful for debugging)
   window.refreshDataFromSupabase = async () => {
     if (!window.supabase) {
-      console.log('❌ Supabase not available');
       return;
     }
     
     try {
-      console.log('🔄 Force refreshing data from Supabase...');
       const userId = await getCurrentUserId();
       if (!userId) {
-        console.log('❌ No user ID');
         return;
       }
 
@@ -2489,12 +2461,10 @@ CREATE POLICY "Users can only access their own data" ON user_data
         .single();
 
       if (error) {
-        console.error('Error loading data:', error);
         return;
       }
 
       if (data && data.data) {
-        console.log('✅ Data loaded from Supabase:', data.data);
         window.showDataStatusNotification('✅ Connected to live data', 'connected');
         // Update the app state with the fresh data
         if (window.state && window.migrateState) {
@@ -2502,14 +2472,12 @@ CREATE POLICY "Users can only access their own data" ON user_data
           if (window.render) {
             window.render();
           }
-          console.log('✅ App state updated with fresh data');
         }
       } else {
-        console.log('No data found in Supabase');
         window.showDataStatusNotification('⚠️ No data found', 'fallback');
       }
     } catch (e) {
-      console.error('Error refreshing data:', e);
+      // Silent fail for background refresh
     }
   };
 
@@ -2520,12 +2488,10 @@ CREATE POLICY "Users can only access their own data" ON user_data
         if (event === 'SIGNED_IN' && session) {
           // Store session globally
           window.currentSession = session;
-          console.log('🔄 User signed in, running migration...');
           await window.migrateLocalDataToSupabase();
           
           // Also try to refresh data from Supabase to ensure we have the latest
           setTimeout(async () => {
-            console.log('🔄 Refreshing data after sign in...');
             await window.refreshDataFromSupabase();
           }, 2000);
         } else if (event === 'SIGNED_OUT') {
@@ -2723,22 +2689,16 @@ CREATE POLICY "Users can only access their own data" ON user_data
     // AUTHENTICATION
     // =========================
     async function getCurrentUserId() {
-      console.log('🔄 getCurrentUserId() starting...');
-      
       // First try to use stored session to avoid auth calls
       if (window.currentSession && window.currentSession.user) {
-        console.log('✅ Using stored session, user ID:', window.currentSession.user.id);
         return window.currentSession.user.id;
       }
       
       if (!window.supabase) {
-        console.log('❌ No supabase client');
         return null;
       }
       
       try {
-        console.log('🔄 Calling supabase.auth.getUser()...');
-        
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Auth timeout after 5 seconds')), 5000)
@@ -2747,7 +2707,6 @@ CREATE POLICY "Users can only access their own data" ON user_data
         const authPromise = window.supabase.auth.getUser();
         const { data } = await Promise.race([authPromise, timeoutPromise]);
         
-        console.log('✅ Got user data:', data?.user?.id ? 'User ID found' : 'No user ID');
         return data?.user?.id || null;
       } catch (e) {
         console.error('❌ Error getting user ID:', e);
@@ -2760,13 +2719,10 @@ CREATE POLICY "Users can only access their own data" ON user_data
     // =========================
     async function load() {
       try {
-        console.log('🔄 load() starting...');
         const userId = await getCurrentUserId();
-        console.log('Loading data for user ID:', userId);
         
         // If we have a user ID and Supabase, try to load from Supabase with aggressive timeout
         if (userId && window.supabase) {
-          console.log('🔄 Querying Supabase...');
           
           // Much shorter timeout for better UX - fallback quickly if Supabase is slow
           const queryTimeout = new Promise((_, reject) => 
@@ -2783,26 +2739,19 @@ CREATE POLICY "Users can only access their own data" ON user_data
               
             const { data, error } = await Promise.race([queryPromise, queryTimeout]);
 
-            console.log('Supabase query result:', { data, error });
-
             if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-              console.error('Error loading user data from Supabase:', error);
               // Fallback to localStorage immediately for better UX
-              console.log('🔄 Falling back to localStorage due to Supabase error');
               const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
               window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
               return migrateState(raw) || structuredClone(defaultState);
             }
 
             if (data && data.data) {
-              console.log('✅ Loaded user data from Supabase:', data.data);
               window.showDataStatusNotification('✅ Connected to live data', 'connected');
               return migrateState(data.data);
             }
           } catch (queryError) {
-            console.error('Supabase query failed or timed out:', queryError);
             // Fallback to localStorage immediately
-            console.log('🔄 Supabase timeout, using localStorage data');
             const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
             window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
             return migrateState(raw) || structuredClone(defaultState);
@@ -2810,20 +2759,16 @@ CREATE POLICY "Users can only access their own data" ON user_data
 
           // No data found in Supabase - this might be a new device
           // Check if there's local data to migrate
-          console.log('No data found in Supabase, checking for local data to migrate...');
           const localData = localStorage.getItem(storeKey);
           if (localData) {
-            console.log('Found local data, will migrate to Supabase');
             // Return the local data for now, migration will happen in background
             return migrateState(JSON.parse(localData));
           }
           
-          console.log('No data found anywhere, using default state');
           return structuredClone(defaultState);
         }
 
         // Fallback to localStorage only if not authenticated or no Supabase
-        console.log('No user ID or supabase, falling back to localStorage');
         window.showDataStatusNotification('⚠️ Using offline data', 'fallback');
         const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
         return migrateState(raw) || structuredClone(defaultState);
@@ -2870,16 +2815,10 @@ CREATE POLICY "Users can only access their own data" ON user_data
     // =========================
     async function initializeApp() {
       try {
-        console.log('🔄 initializeApp() starting...');
-        console.log('🔄 Initializing DOM cache...');
         initDOMCache();
-        console.log('🔄 Loading data...');
         state = await load();
-        console.log('✅ Data loaded, running sanity check...');
         startupSanityCheck();
-        console.log('✅ Sanity check complete, rendering...');
         render();
-        console.log('✅ initializeApp() completed successfully');
       } catch (e) {
         console.error('❌ initializeApp() failed:', e);
         throw e;
