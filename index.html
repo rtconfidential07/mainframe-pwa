@@ -1511,6 +1511,43 @@
       color: #ff6b6b;
       font-size: 12px;
     }
+
+    /* Data Source Status Notification */
+    .data-status-notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+
+    .data-status-notification.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .data-status-notification.connected {
+      background: rgba(34, 197, 94, 0.9);
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .data-status-notification.fallback {
+      background: rgba(245, 158, 11, 0.9);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
     
     .logout-btn {
       margin-left: var(--spacing-sm);
@@ -1534,6 +1571,9 @@
   </style>
 </head>
 <body>
+  <!-- Data Source Status Notification -->
+  <div id="dataStatusNotification" class="data-status-notification"></div>
+
   <!-- Auth Screen (hidden when logged in) -->
   <div id="authScreen" class="hidden">
     <div class="auth-card" role="dialog" aria-labelledby="authTitle">
@@ -2086,6 +2126,21 @@
   // Initial paint - check auth first
   refreshAuthUI()
 
+  // Data source status notification
+  function showDataStatusNotification(message, type = 'connected') {
+    const notification = document.getElementById('dataStatusNotification');
+    if (!notification) return;
+    
+    notification.textContent = message;
+    notification.className = `data-status-notification ${type}`;
+    notification.classList.add('show');
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, 3000);
+  }
+
   // Expose a tiny helper so you can set keys at runtime from console if needed
   window.setSupabaseKeys = (url, key) => { window.SUPABASE_URL = url; window.SUPABASE_ANON_KEY = key; location.reload() }
 
@@ -2295,21 +2350,38 @@ CREATE POLICY "Users can only access their own data" ON user_data
     
     try {
       const userId = await getCurrentUserId();
-      if (!userId) return;
+      if (!userId) {
+        console.log('No user ID for migration');
+        return;
+      }
+
+      console.log('🔄 Checking for data migration...');
 
       // Check if user already has data in Supabase
-      const { data: existingData } = await supabase
+      const { data: existingData, error: checkError } = await supabase
         .from('user_data')
         .select('*')
         .eq('user_id', userId)
         .single();
 
-      if (existingData) return; // User already has data
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing data:', checkError);
+        return;
+      }
+
+      if (existingData) {
+        console.log('User already has data in Supabase, no migration needed');
+        return; // User already has data
+      }
 
       // Check localStorage for existing data
       const localData = localStorage.getItem('mainframe_v1');
-      if (!localData) return;
+      if (!localData) {
+        console.log('No local data to migrate');
+        return;
+      }
 
+      console.log('🔄 Migrating local data to Supabase...');
       // Migrate to Supabase
       const parsedData = JSON.parse(localData);
       const { error } = await supabase
@@ -2321,23 +2393,78 @@ CREATE POLICY "Users can only access their own data" ON user_data
         });
 
       if (!error) {
-        console.log('Successfully migrated local data to Supabase');
+        console.log('✅ Successfully migrated local data to Supabase');
+        showDataStatusNotification('✅ Data migrated to cloud', 'connected');
         // Optionally clear localStorage after successful migration
         // localStorage.removeItem('mainframe_v1');
       } else {
         console.error('Migration error:', error);
+        showDataStatusNotification('⚠️ Migration failed', 'fallback');
       }
     } catch (e) {
       console.error('Migration error:', e);
     }
   }
 
+  // Force refresh data from Supabase (useful for debugging)
+  window.refreshDataFromSupabase = async () => {
+    if (!window.supabase) {
+      console.log('❌ Supabase not available');
+      return;
+    }
+    
+    try {
+      console.log('🔄 Force refreshing data from Supabase...');
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        console.log('❌ No user ID');
+        return;
+      }
+
+      const { data, error } = await window.supabase
+        .from('user_data')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error loading data:', error);
+        return;
+      }
+
+      if (data && data.data) {
+        console.log('✅ Data loaded from Supabase:', data.data);
+        showDataStatusNotification('✅ Connected to live data', 'connected');
+        // Update the app state with the fresh data
+        if (window.state && window.migrateState) {
+          window.state = window.migrateState(data.data);
+          if (window.render) {
+            window.render();
+          }
+          console.log('✅ App state updated with fresh data');
+        }
+      } else {
+        console.log('No data found in Supabase');
+        showDataStatusNotification('⚠️ No data found', 'fallback');
+      }
+    } catch (e) {
+      console.error('Error refreshing data:', e);
+    }
+  };
+
   // Auto-migrate when auth state changes
   if (supabase) {
     supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (event === 'SIGNED_IN' && session) {
+          console.log('🔄 User signed in, running migration...');
           await window.migrateLocalDataToSupabase();
+          
+          // Also try to refresh data from Supabase to ensure we have the latest
+          setTimeout(async () => {
+            console.log('🔄 Refreshing data after sign in...');
+            await window.refreshDataFromSupabase();
+          }, 2000);
         }
       } catch (e) {
         console.error('Auto-migration error:', e);
@@ -2571,42 +2698,81 @@ CREATE POLICY "Users can only access their own data" ON user_data
         const userId = await getCurrentUserId();
         console.log('Loading data for user ID:', userId);
         
-        if (!userId || !window.supabase) {
-          console.log('No user ID or supabase, falling back to localStorage');
-          // Fallback to localStorage if not authenticated
-          const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
-          return migrateState(raw) || structuredClone(defaultState);
-        }
+        // If we have a user ID and Supabase, always try to load from Supabase first
+        if (userId && window.supabase) {
+          console.log('🔄 Querying Supabase...');
+          // Load from Supabase
+          const { data, error } = await window.supabase
+            .from('user_data')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
 
-        console.log('🔄 Querying Supabase...');
-        // Load from Supabase
-        const { data, error } = await window.supabase
-          .from('user_data')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+          console.log('Supabase query result:', { data, error });
 
-        console.log('Supabase query result:', { data, error });
-
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-          console.error('Error loading user data:', error);
-          // Fallback to localStorage
-          const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
-          return migrateState(raw) || structuredClone(defaultState);
-        }
+          if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+            console.error('Error loading user data from Supabase:', error);
+            // Don't fallback to localStorage immediately - this could be a network issue
+            // Try to retry once after a short delay
+            console.log('🔄 Retrying Supabase query after delay...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const { data: retryData, error: retryError } = await window.supabase
+              .from('user_data')
+              .select('*')
+              .eq('user_id', userId)
+              .single();
+              
+            if (retryError) {
+              console.error('Retry also failed, falling back to localStorage');
+              const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+              return migrateState(raw) || structuredClone(defaultState);
+            } else if (retryData && retryData.data) {
+              console.log('✅ Retry successful, loaded user data from Supabase:', retryData.data);
+              showDataStatusNotification('✅ Connected to live data', 'connected');
+              return migrateState(retryData.data);
+            }
+          }
 
         if (data && data.data) {
-          console.log('Loaded user data from Supabase:', data.data);
+          console.log('✅ Loaded user data from Supabase:', data.data);
+          showDataStatusNotification('✅ Connected to live data', 'connected');
           return migrateState(data.data);
         }
 
-        console.log('No data found, using default state');
-        return structuredClone(defaultState);
-      } catch (e) {
-        console.error('Load error:', e);
-        // Fallback to localStorage
+          // No data found in Supabase - this might be a new device
+          // Check if there's local data to migrate
+          console.log('No data found in Supabase, checking for local data to migrate...');
+          const localData = localStorage.getItem(storeKey);
+          if (localData) {
+            console.log('Found local data, will migrate to Supabase');
+            // Return the local data for now, migration will happen in background
+            return migrateState(JSON.parse(localData));
+          }
+          
+          console.log('No data found anywhere, using default state');
+          return structuredClone(defaultState);
+        }
+
+        // Fallback to localStorage only if not authenticated or no Supabase
+        console.log('No user ID or supabase, falling back to localStorage');
+        showDataStatusNotification('⚠️ Using offline data', 'fallback');
         const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
         return migrateState(raw) || structuredClone(defaultState);
+      } catch (e) {
+        console.error('Load error:', e);
+        // Only fallback to localStorage if we're not authenticated
+        const userId = await getCurrentUserId();
+        if (!userId) {
+          console.log('Not authenticated, falling back to localStorage');
+          showDataStatusNotification('⚠️ Using offline data', 'fallback');
+          const raw = JSON.parse(localStorage.getItem(storeKey) || 'null');
+          return migrateState(raw) || structuredClone(defaultState);
+        } else {
+          console.error('Authenticated but load failed, using default state');
+          showDataStatusNotification('⚠️ Using offline data', 'fallback');
+          return structuredClone(defaultState);
+        }
       }
     }
 
